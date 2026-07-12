@@ -4,6 +4,24 @@ Read-only Angular dashboard over the CostScope Cost API (ClickHouse view of attr
 
 ## Quickstart
 
+Via [mise](https://mise.jdx.dev) (pins Node 22, wires up the sibling API):
+
+```bash
+mise install       # Node 22 for this repo, Go 1.25 for ../oci-finops-api
+mise run dev       # ng serve + cost-api together, output interleaved
+```
+
+Or run each piece on its own:
+
+```bash
+mise run start     # ng serve with /v1 + /healthz proxied to http://localhost:8080
+mise run api       # cost-api from ../oci-finops-api (needs its .env, see that repo's README)
+mise run test      # vitest unit tests
+mise run build     # production build to dist/
+```
+
+Without mise:
+
 ```bash
 npm install
 npm start          # ng serve with /v1 + /healthz proxied to http://localhost:8080
@@ -11,7 +29,7 @@ npm test           # vitest unit tests
 npm run build      # production build to dist/
 ```
 
-Requires the cost-api running locally: `go run -tags clickhouse ./cmd/cost-api` from `../cost-api` with ClickHouse env loaded (see that repo's `.env.example`).
+Requires the cost-api running locally: `go run -tags clickhouse ./cmd/cost-api` from `../oci-finops-api` with ClickHouse env loaded (see that repo's `.env.example`).
 
 ## Folder structure
 
@@ -29,7 +47,7 @@ src/app/
     chart-theme.ts       # ATD blue ramp; red reserved for overage + hero KPI
   views/
     summary/             # Executive Summary: KPI band, trend, breakdowns, tag small multiples
-    explorer/            # Cost Explorer: filter rail, breadcrumb drilldown, node detail, CSV
+    explorer/            # Cost Explorer: cascading top filters, hierarchy tree, node detail, CSV
     resources/           # paginated table + /resources/:ocid detail with lineitems trend
     trends/              # timeseries with grain toggle + stack-by-dimension
   app.ts                 # shell: top bar (freshness, date range, currency), left nav
@@ -45,8 +63,8 @@ src/app/
 | `/resources/:ocid` | Resource detail | resources/{ocid}, lineitems |
 | `/trends` | Trends | timeseries (+ breakdown for top-N stacking) |
 
-Explorer state (filters, group-by, drill crumbs) is fully URL-encoded — deep-linkable, e.g.
-`/explorer?service=COMPUTE&groupBy=compartment&drill=service~COMPUTE&grain=day`.
+Explorer state (filters, hierarchy, expanded paths, selected node, and search text) is fully URL-encoded — deep-linkable, e.g.
+`/explorer?service=COMPUTE&hier=service,compartment,resource_name&open=COMPUTE&grain=day`.
 
 ## API contract notes (verified live)
 

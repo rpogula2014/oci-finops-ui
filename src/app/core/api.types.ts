@@ -48,6 +48,12 @@ export interface BreakdownRow {
   currency: string;
   cost: CostString;
   resources: number;
+  series?: BreakdownSeriesPoint[];
+}
+
+export interface BreakdownSeriesPoint {
+  date: string;
+  cost: CostString;
 }
 
 export interface ResourceRow {

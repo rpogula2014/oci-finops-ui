@@ -84,8 +84,14 @@ export class CostApiService {
     return this.get('/v1/costs/timeseries', toParams(query, { granularity }));
   }
 
-  breakdown(query: CostQuery, dimension: Dimension, limit = 20): Observable<Unwrapped<BreakdownRow[]>> {
-    return this.get('/v1/costs/breakdown', toParams(query, { dimension, limit }));
+  breakdown(
+    query: CostQuery,
+    dimension: Dimension,
+    limit = 20,
+    series = false,
+    granularity: Granularity = 'day',
+  ): Observable<Unwrapped<BreakdownRow[]>> {
+    return this.get('/v1/costs/breakdown', toParams(query, { dimension, limit, series: series ? 'true' : undefined, granularity }));
   }
 
   resources(
@@ -103,15 +109,15 @@ export class CostApiService {
   }
 
   lineItems(
-    ref: { resource_name: string } | { ocid: string },
+    ref: { resource_name: string } | { ocid: string } | undefined,
     granularity: Granularity = 'day',
     query: CostQuery = {},
   ): Observable<Unwrapped<LineItemsRow[]>> {
-    return this.get('/v1/costs/lineitems', toParams(query, { ...ref, granularity }));
+    return this.get('/v1/costs/lineitems', toParams(query, { ...(ref ?? {}), granularity }));
   }
 
-  filters(): Observable<Unwrapped<FiltersRow[]>> {
-    return this.get('/v1/costs/filters');
+  filters(query: CostQuery = {}): Observable<Unwrapped<FiltersRow[]>> {
+    return this.get('/v1/costs/filters', toParams(query));
   }
 
   freshness(): Observable<Unwrapped<Freshness>> {

@@ -52,4 +52,17 @@ describe('CostApiService', () => {
     expect(req.request.params.has('compartment')).toBe(false);
     req.flush({ data: [], meta: {}, error: null });
   });
+
+  it('passes filtered options and the optional breakdown series flag', () => {
+    service.filters({ env: 'prod' }).subscribe();
+    const filters = http.expectOne((r) => r.url === '/v1/costs/filters');
+    expect(filters.request.params.get('env')).toBe('prod');
+    filters.flush({ data: [], meta: {}, error: null });
+
+    service.breakdown({}, 'service', 15, true, 'week').subscribe();
+    const breakdown = http.expectOne((r) => r.url === '/v1/costs/breakdown');
+    expect(breakdown.request.params.get('series')).toBe('true');
+    expect(breakdown.request.params.get('granularity')).toBe('week');
+    breakdown.flush({ data: [], meta: {}, error: null });
+  });
 });

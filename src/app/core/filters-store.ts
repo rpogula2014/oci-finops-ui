@@ -38,6 +38,13 @@ export const DIMENSION_LABELS: Record<Dimension, string> = {
 
 /** API max range is 400 days. */
 export const MAX_RANGE_DAYS = 400;
+export const DEFAULT_HIERARCHY: Dimension[] = [
+  'compartment',
+  'cost_center',
+  'component_type',
+  'resource_type',
+  'resource_name',
+];
 
 function defaultRange(): { start: string; end: string } {
   const end = new Date();
@@ -59,6 +66,11 @@ export class FiltersStore {
   readonly end = signal<string>(this.initial.end);
   readonly granularity = signal<Granularity>('day');
   readonly currency = signal<string | null>(null); // foregrounded segment when >1 currency
+  readonly hierarchy = signal<Dimension[]>([...DEFAULT_HIERARCHY]);
+  readonly search = signal('');
+  /** Each path contains URI-encoded row labels joined by `|`. */
+  readonly expandedPaths = signal<string[]>([]);
+  readonly selectedPath = signal<string | null>(null);
 
   private readonly filterSignals = Object.fromEntries(
     DIMENSION_FILTER_KEYS.map((key) => [key, signal<string | null>(null)]),
@@ -83,6 +95,13 @@ export class FiltersStore {
     for (const key of DIMENSION_FILTER_KEYS) this.filterSignals[key].set(null);
   }
 
+  setHierarchy(hierarchy: Dimension[]): void {
+    const valid = hierarchy.filter((dimension, index) => dimension in DIMENSION_TO_FILTER && hierarchy.indexOf(dimension) === index);
+    this.hierarchy.set(valid.length ? valid : [...DEFAULT_HIERARCHY]);
+    this.expandedPaths.set([]);
+    this.selectedPath.set(null);
+  }
+
   /** Query object for CostApiService. "" is kept (untagged); null means unset. */
   readonly query = computed<CostQuery>(() => {
     const query: CostQuery = { start: this.start(), end: this.end() };
@@ -93,7 +112,7 @@ export class FiltersStore {
     return query;
   });
 
-  /** Router query params representing current state (drill crumbs added by Explorer). */
+  /** Router query params representing current Explorer state. */
   toQueryParams(): Params {
     const params: Params = {};
     for (const key of DIMENSION_FILTER_KEYS) {
@@ -103,6 +122,10 @@ export class FiltersStore {
     params['start'] = this.start();
     params['end'] = this.end();
     params['grain'] = this.granularity();
+    params['hier'] = this.hierarchy().join(',');
+    if (this.search()) params['search'] = this.search();
+    if (this.expandedPaths().length) params['open'] = this.expandedPaths().join(',');
+    if (this.selectedPath()) params['sel'] = this.selectedPath();
     return params;
   }
 
@@ -116,5 +139,12 @@ export class FiltersStore {
     if (grain === 'hour' || grain === 'day' || grain === 'week' || grain === 'month') {
       this.granularity.set(grain);
     }
+    const hierarchy = String(params['hier'] ?? '')
+      .split(',')
+      .filter((dimension): dimension is Dimension => dimension in DIMENSION_TO_FILTER);
+    if (hierarchy.length) this.hierarchy.set([...new Set(hierarchy)]);
+    if (params['search'] !== undefined) this.search.set(String(params['search']));
+    if (params['open'] !== undefined) this.expandedPaths.set(String(params['open']).split(',').filter(Boolean));
+    if (params['sel'] !== undefined) this.selectedPath.set(String(params['sel']) || null);
   }
 }

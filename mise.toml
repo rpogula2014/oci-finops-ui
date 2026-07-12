@@ -1,0 +1,23 @@
+[tools]
+node = "22"
+
+[tasks.install]
+run = "npm install"
+
+[tasks.start]
+run = "npm start"
+
+[tasks.build]
+run = "npm run build"
+
+[tasks.test]
+run = "npm test"
+
+[tasks.api]
+description = "Run sibling oci-finops-api locally (needs its own .env)"
+dir = "../oci-finops-api"
+run = "mise run api"
+
+[tasks.dev]
+description = "Run UI + API together"
+depends = ["start", "api"]

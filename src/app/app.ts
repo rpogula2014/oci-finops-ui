@@ -19,7 +19,7 @@ import { currenciesOf } from './core/currency';
   imports: [RouterOutlet, RouterLink, RouterLinkActive, LucideAngularModule, DatePipe],
   template: `
     <header class="topbar">
-      <span class="wordmark">CostScope <span class="divider">/</span> <span class="sub">OCI FINOPS</span></span>
+      <span class="wordmark">ATD  <span class="sub">OCI FINOPS</span></span>
       <div class="controls">
         <select class="preset" (change)="onPreset($event)" aria-label="Date range preset">
           @for (p of presets; track p.id) {

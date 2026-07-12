@@ -1,9 +1,6 @@
-## Purpose
+# cost-explorer delta — redesign-cost-explorer
 
-Define the interactive cost-exploration experience, including filtering,
-hierarchical drilldown, node detail, trends, and export.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Filter rail
 The Explorer SHALL show a compact top filter bar (replacing the left rail): one
@@ -72,6 +69,8 @@ search applied) as a client-generated CSV file including a depth/path column.
 #### Scenario: Export
 - **WHEN** the user clicks CSV with COMPUTE expanded
 - **THEN** a file downloads containing exactly the visible rows, each with its hierarchy path, cost, and share columns
+
+## ADDED Requirements
 
 ### Requirement: Row proportion and trend presentation
 Every tree row SHALL show its share of the parent (top-level rows: share of total) as a
