@@ -134,7 +134,7 @@ Responses use the envelope `{data, meta, error}` with rows typed as
 `subtotal_cost` (decimal string), and `row_count`. An `other` row has the same shape as
 a `group` row but `kind: 'other'`, is terminal (not expandable), and its `row_count` is
 the count of hidden children. A `leaf` row exposes `kind`, the full resource columns
-(service, compartment, region, environment, cost_center, component_type, resource_type,
+(service, compartment, environment, cost_center, component_type, resource_type,
 resource_name, ocid), `period`, `currency`, and `cost` (decimal string). Costs SHALL
 remain decimal strings, parsed only at display.
 
