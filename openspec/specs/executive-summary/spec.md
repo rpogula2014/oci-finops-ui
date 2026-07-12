@@ -1,3 +1,6 @@
+## Purpose
+Executive summary landing view: headline KPIs and a group-by cost breakdown.
+
 ## Requirements
 
 ### Requirement: Group-by selector

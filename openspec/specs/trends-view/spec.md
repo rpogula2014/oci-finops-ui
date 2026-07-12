@@ -1,3 +1,6 @@
+## Purpose
+Time-series cost trends with selectable granularity and shared filters.
+
 ## Requirements
 
 ### Requirement: Timeseries with grain and filters

@@ -1,3 +1,6 @@
+## Purpose
+Contract for the aggregate executive-summary API endpoint backing the summary view.
+
 ## Requirements
 
 ### Requirement: Aggregate executive-summary endpoint

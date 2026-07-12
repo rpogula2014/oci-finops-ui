@@ -1,3 +1,6 @@
+## Purpose
+Global application shell: top bar, left navigation, date-range and currency selectors, and page layout.
+
 ## Requirements
 
 ### Requirement: Application chrome
