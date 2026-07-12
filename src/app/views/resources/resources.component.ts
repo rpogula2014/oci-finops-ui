@@ -1,10 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EMPTY, catchError, debounceTime, map, switchMap } from 'rxjs';
 import { ApiError, ResourceRow } from '../../core/api.types';
 import { CostApiService } from '../../core/cost-api.service';
-import { FiltersStore } from '../../core/filters-store';
+import { DIMENSION_FILTER_KEYS, DIMENSION_LABELS, DimensionFilterKey, FiltersStore } from '../../core/filters-store';
 import { labelForFilterValue } from '../../core/currency';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { PanelStateComponent, PanelStatus } from '../../shared/panel-state.component';
@@ -21,6 +21,14 @@ const PAGE_SIZE = 50;
     <span class="eyebrow">Resources</span>
     <h1>Resource costs</h1>
 
+    @if (chips().length) {
+      <div class="scope-chips" aria-label="Active resource filters">
+        @for (chip of chips(); track chip.key) {
+          <button class="scope-chip" (click)="dismiss(chip.key)">{{ chip.label }}: {{ labelFor(chip.value) }} <span aria-hidden="true">×</span></button>
+        }
+      </div>
+    }
+
     <div class="card">
       <app-panel-state [status]="panel().status" [error]="panel().error">
         <table class="data" aria-label="Resources with cost">
@@ -29,11 +37,7 @@ const PAGE_SIZE = 50;
               @for (col of columns; track col.key) {
                 <th scope="col" [class.num]="col.numeric">
                   @if (col.sort) {
-                    <button
-                      class="sort"
-                      (click)="onSort(col.sort)"
-                      [attr.aria-sort]="sort() === col.sort ? (direction() === 'asc' ? 'ascending' : 'descending') : null"
-                    >
+                    <button class="sort" (click)="onSort(col.sort)" [attr.aria-sort]="sort() === col.sort ? (direction() === 'asc' ? 'ascending' : 'descending') : null">
                       {{ col.label }}
                       @if (sort() === col.sort) {
                         <span aria-hidden="true">{{ direction() === 'asc' ? '▲' : '▼' }}</span>
@@ -69,10 +73,38 @@ const PAGE_SIZE = 50;
     </div>
   `,
   styles: `
-    th button.sort { border: none; background: none; font-weight: 700; color: var(--atd-distribution-blue); padding: 0; }
-    td.num, th.num { text-align: right; }
-    tbody tr { cursor: pointer; }
-    .pager { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; font-size: 13px; }
+    th button.sort {
+      border: none;
+      background: none;
+      font-weight: 700;
+      color: var(--atd-distribution-blue);
+      padding: 0;
+    }
+    td.num,
+    th.num {
+      text-align: right;
+    }
+    tbody tr {
+      cursor: pointer;
+    }
+    .pager {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 12px;
+      font-size: 13px;
+    }
+    .scope-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 12px;
+    }
+    .scope-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
   `,
 })
 export class ResourcesComponent {
@@ -95,17 +127,35 @@ export class ResourcesComponent {
   protected readonly sort = signal<SortKey>('cost');
   protected readonly direction = signal<'asc' | 'desc'>('desc');
   protected readonly total = signal(0);
-  protected readonly panel = signal<{ status: PanelStatus; data: ResourceRow[] | null; error: ApiError | null }>({
+  protected readonly panel = signal<{
+    status: PanelStatus;
+    data: ResourceRow[] | null;
+    error: ApiError | null;
+  }>({
     status: 'loading',
     data: null,
     error: null,
   });
 
   protected readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / PAGE_SIZE)));
+  protected readonly chips = computed(() =>
+    DIMENSION_FILTER_KEYS.flatMap((key) => {
+      const value = this.filters.filter(key)();
+      if (key === 'ocid' || value === null) return [];
+      return [{ key, value, label: key === 'env' ? DIMENSION_LABELS.environment : DIMENSION_LABELS[key] }];
+    }),
+  );
   protected labelFor = labelForFilterValue;
 
   constructor() {
     this.filters.hydrateFromParams(this.route.snapshot.queryParams);
+    effect(() => {
+      void this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: this.filters.toFilterParams(),
+        replaceUrl: true,
+      });
+    });
 
     const key = computed(() => ({
       query: this.filters.query(),
@@ -144,6 +194,13 @@ export class ResourcesComponent {
   }
 
   protected open(row: ResourceRow): void {
-    this.router.navigate(['/resources', row.ocid]);
+    void this.router.navigate(['/resources', row.ocid], {
+      queryParams: this.filters.toFilterParams(),
+    });
+  }
+
+  protected dismiss(key: Exclude<DimensionFilterKey, 'ocid'>): void {
+    this.filters.setFilter(key, null);
+    this.page.set(1);
   }
 }

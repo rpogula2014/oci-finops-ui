@@ -1,0 +1,46 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildStatCards } from './summary-metrics';
+
+const base = {
+  summaryRows: [{ currency: 'USD', cost: '100', resources: 1, line_items: 1 }],
+  costCenters: [],
+  environments: [],
+  topResources: [],
+  topLabel: 'Resource name',
+  freshness: { data_through: '2026-07-11T00:00:00Z', loaded_at: '2026-07-11T00:00:00Z' },
+  start: '2026-01-01T00:00:00Z',
+  end: '2026-07-12T00:00:00Z',
+  currency: 'USD',
+};
+
+describe('buildStatCards', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('labels the current calendar-month bucket without a partiality suffix', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-12T12:00:00Z'));
+
+    const cards = buildStatCards({ ...base, monthly: [{ bucket: '2026-07-01T00:00:00Z', currency: 'USD', cost: '42' }] });
+
+    expect(cards).toContainEqual(expect.objectContaining({ label: 'Current month', subs: ['2026-07'] }));
+  });
+
+  it('keeps the latest-month label when the newest bucket is older than the current month', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-12T12:00:00Z'));
+
+    const cards = buildStatCards({ ...base, monthly: [{ bucket: '2026-06-01T00:00:00Z', currency: 'USD', cost: '42' }] });
+
+    expect(cards).toContainEqual(expect.objectContaining({ label: 'Latest month', subs: ['2026-06'] }));
+  });
+
+  it('does not render an untagged cost-center card', () => {
+    const cards = buildStatCards({
+      ...base,
+      monthly: [{ bucket: '2026-06-01T00:00:00Z', currency: 'USD', cost: '42' }],
+      costCenters: [{ dimension_value: '', currency: 'USD', cost: '42', resources: 1 }],
+    });
+
+    expect(cards.map((card) => card.label)).not.toContain('Untagged (no cost center)');
+  });
+});

@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { EMPTY, catchError, map } from 'rxjs';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsOption } from 'echarts';
 import { ApiError, Granularity, LineItemsRow, ResourceDetail } from '../../core/api.types';
 import { CostApiService } from '../../core/cost-api.service';
 import { labelForFilterValue, parseCost } from '../../core/currency';
+import { FiltersStore } from '../../core/filters-store';
 import { BASE_CHART, CHART_RAMP } from '../../shared/chart-theme';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { PanelStateComponent, PanelStatus } from '../../shared/panel-state.component';
@@ -15,7 +16,7 @@ import { PanelStateComponent, PanelStatus } from '../../shared/panel-state.compo
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MoneyPipe, RouterLink, NgxEchartsDirective, PanelStateComponent],
   template: `
-    <a routerLink="/resources">‹ All resources</a>
+    <a routerLink="/resources" queryParamsHandling="preserve">‹ All resources</a>
     <app-panel-state [status]="panel().status" [error]="panel().error">
       @if (panel().data; as r) {
         <span class="eyebrow">{{ r.service }} · {{ r.resource_type || 'Resource' }}</span>
@@ -46,13 +47,7 @@ import { PanelStateComponent, PanelStatus } from '../../shared/panel-state.compo
             </div>
             <app-panel-state [status]="trendPanel().status" [error]="trendPanel().error">
               @if (trendPanel().status === 'ready') {
-                <div
-                  echarts
-                  [options]="trendChart()"
-                  class="chart"
-                  role="img"
-                  aria-label="Line item cost trend for this resource"
-                ></div>
+                <div echarts [options]="trendChart()" class="chart" role="img" aria-label="Line item cost trend for this resource"></div>
               }
             </app-panel-state>
           </div>
@@ -61,51 +56,108 @@ import { PanelStateComponent, PanelStatus } from '../../shared/panel-state.compo
     </app-panel-state>
   `,
   styles: `
-    .detail-grid { display: grid; grid-template-columns: 340px 1fr; gap: 16px; margin-top: 16px; align-items: start; }
-    .fields { display: flex; flex-direction: column; gap: 10px; }
-    .field-row { display: flex; flex-direction: column; }
-    .field-row .value { font-size: 13px; }
-    .field-row .value.mono { font-family: monospace; font-size: 11px; word-break: break-all; }
-    .panel-head { display: flex; justify-content: space-between; align-items: center; }
-    .grain-toggle button.on { background: var(--atd-logistics-blue); font-weight: 700; }
-    .head-metrics { display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px; }
-    .head-metrics .big { font-weight: 800; font-size: 22px; color: var(--atd-distribution-blue); }
-    .head-metrics .overage { color: var(--atd-error); font-weight: 700; font-size: 13px; }
-    .chart { height: 260px; width: 100%; }
-    @media (max-width: 1000px) { .detail-grid { grid-template-columns: 1fr; } }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 16px;
+      margin-top: 16px;
+      align-items: start;
+    }
+    .fields {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .field-row {
+      display: flex;
+      flex-direction: column;
+    }
+    .field-row .value {
+      font-size: 13px;
+    }
+    .field-row .value.mono {
+      font-family: monospace;
+      font-size: 11px;
+      word-break: break-all;
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .grain-toggle button.on {
+      background: var(--atd-logistics-blue);
+      font-weight: 700;
+    }
+    .head-metrics {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    .head-metrics .big {
+      font-weight: 800;
+      font-size: 22px;
+      color: var(--atd-distribution-blue);
+    }
+    .head-metrics .overage {
+      color: var(--atd-error);
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .chart {
+      height: 260px;
+      width: 100%;
+    }
+    @media (max-width: 1000px) {
+      .detail-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   `,
 })
 export class ResourceDetailComponent {
   readonly ocid = input.required<string>();
 
   private readonly api = inject(CostApiService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly filters = inject(FiltersStore);
   protected readonly grains: Granularity[] = ['day', 'week', 'month'];
   protected readonly grain = signal<Granularity>('day');
+  // Path OCID uniquely identifies the resource; a stale resource_name/ocid
+  // filter must not blank a valid detail URL. Keep date + other dimensions.
+  private readonly scopedQuery = computed(() => {
+    const { resource_name: _rn, ocid: _oc, ...rest } = this.filters.query();
+    return rest;
+  });
   protected labelFor = labelForFilterValue;
 
-  protected readonly panel = signal<{ status: PanelStatus; data: ResourceDetail | null; error: ApiError | null }>({
+  protected readonly panel = signal<{
+    status: PanelStatus;
+    data: ResourceDetail | null;
+    error: ApiError | null;
+  }>({
     status: 'loading',
     data: null,
     error: null,
   });
-  protected readonly trendPanel = signal<{ status: PanelStatus; data: LineItemsRow[] | null; error: ApiError | null }>(
-    { status: 'loading', data: null, error: null },
-  );
+  protected readonly trendPanel = signal<{
+    status: PanelStatus;
+    data: LineItemsRow[] | null;
+    error: ApiError | null;
+  }>({ status: 'loading', data: null, error: null });
 
   constructor() {
+    this.filters.hydrateFromParams(this.route.snapshot.queryParams);
+
     effect(() => {
       const ocid = this.ocid();
+      const query = this.scopedQuery();
       this.panel.set({ status: 'loading', data: null, error: null });
       this.api
-        .resourceDetail(ocid)
+        .resourceDetail(ocid, query)
         .pipe(
-          map(({ rows }) =>
-            this.panel.set(
-              rows.length
-                ? { status: 'ready', data: rows[0], error: null }
-                : { status: 'empty', data: null, error: null },
-            ),
-          ),
+          map(({ rows }) => this.panel.set(rows.length ? { status: 'ready', data: rows[0], error: null } : { status: 'empty', data: null, error: null })),
           catchError((error: ApiError) => {
             this.panel.set({ status: 'error', data: null, error });
             return EMPTY;
@@ -117,12 +169,17 @@ export class ResourceDetailComponent {
     effect(() => {
       const ocid = this.ocid();
       const granularity = this.grain();
+      const query = this.scopedQuery();
       this.trendPanel.set({ status: 'loading', data: null, error: null });
       this.api
-        .lineItems({ ocid }, granularity)
+        .lineItems({ ocid }, granularity, query)
         .pipe(
           map(({ rows }) =>
-            this.trendPanel.set({ status: rows.length ? 'ready' : 'empty', data: rows, error: null }),
+            this.trendPanel.set({
+              status: rows.length ? 'ready' : 'empty',
+              data: rows,
+              error: null,
+            }),
           ),
           catchError((error: ApiError) => {
             this.trendPanel.set({ status: 'error', data: null, error });
@@ -149,9 +206,7 @@ export class ResourceDetailComponent {
     ];
   }
 
-  protected readonly overageTotal = computed(() =>
-    (this.trendPanel().data ?? []).reduce((sum, row) => sum + row.overage_items, 0),
-  );
+  protected readonly overageTotal = computed(() => (this.trendPanel().data ?? []).reduce((sum, row) => sum + row.overage_items, 0));
 
   protected readonly trendChart = computed<EChartsOption>(() => {
     const rows = [...(this.trendPanel().data ?? [])].sort((a, b) => a.bucket.localeCompare(b.bucket));
@@ -163,7 +218,13 @@ export class ResourceDetailComponent {
       xAxis: { type: 'category', data: rows.map((r) => r.bucket.slice(0, 10)) },
       yAxis: { type: 'value' },
       series: [
-        { name: 'Cost', type: 'line', symbol: 'none', data: rows.map((r) => parseCost(r.cost)), color: CHART_RAMP[0] },
+        {
+          name: 'Cost',
+          type: 'line',
+          symbol: 'none',
+          data: rows.map((r) => parseCost(r.cost)),
+          color: CHART_RAMP[0],
+        },
         {
           name: 'My cost',
           type: 'line',

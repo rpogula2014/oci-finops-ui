@@ -29,27 +29,72 @@ interface NodeDetail {
         @if (selected(); as node) {
           <span class="eyebrow">{{ node.row.path.map(labelFor).join(' › ') }}</span>
           <h3>{{ labelFor(node.row.value) }}</h3>
-          <div class="detail-row"><span>Cost</span><strong>{{ node.row.cost | money: node.row.currency }}</strong></div>
-          <div class="detail-row"><span>Resources</span><strong>{{ node.row.resources }}</strong></div>
+          <div class="detail-row">
+            <span>Cost</span><strong>{{ node.row.cost | money: node.row.currency }}</strong>
+          </div>
+          <div class="detail-row">
+            <span>Resources</span><strong>{{ node.row.resources }}</strong>
+          </div>
           @if (node.momDelta !== null) {
-            <div class="detail-row"><span>MoM delta</span><strong [class.overage]="node.momDelta > 0">{{ node.momDelta > 0 ? '+' : '' }}{{ node.momDelta | money: node.row.currency }}</strong></div>
+            <div class="detail-row">
+              <span>MoM delta</span><strong [class.overage]="node.momDelta > 0">{{ node.momDelta > 0 ? '+' : '' }}{{ node.momDelta | money: node.row.currency }}</strong>
+            </div>
           }
           @if (node.lineItems; as items) {
             <h3 class="section">Line items ({{ filters.granularity() }})</h3>
-            <div class="detail-row"><span>Total items</span><strong>{{ sumItems(items) }}</strong></div>
-            <div class="detail-row"><span>Overage items</span><strong [class.overage]="sumOverage(items) > 0">{{ sumOverage(items) }}</strong></div>
-            <div class="detail-row"><span>My cost</span><strong>{{ sumMyCost(items) | money: node.row.currency }}</strong></div>
-          } @else { <p class="hint">Line-item detail is available for resource-name rows.</p> }
-          @if (node.row.dimension === 'resource_name') { <button (click)="openResources(node.row.value)">View resources ›</button> }
-        } @else { <p class="hint">Select a row to see its ancestor path and cost detail.</p> }
+            <div class="detail-row">
+              <span>Total items</span><strong>{{ sumItems(items) }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Overage items</span><strong [class.overage]="sumOverage(items) > 0">{{ sumOverage(items) }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>My cost</span><strong>{{ sumMyCost(items) | money: node.row.currency }}</strong>
+            </div>
+          } @else {
+            <p class="hint">Line-item detail is available for resource-name rows.</p>
+          }
+          @if (node.row.dimension === 'resource_name') {
+            <button (click)="openResources(node.row)">View resources ›</button>
+          }
+        } @else {
+          <p class="hint">Select a row to see its ancestor path and cost detail.</p>
+        }
       </aside>
     </div>
   `,
   styles: `
-    .explorer-grid { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 16px; align-items: start; }
-    .detail { display: flex; flex-direction: column; gap: 12px; }.detail-row { display: flex; justify-content: space-between; font-size: 13px; }
-    .detail .overage { color: var(--atd-error); }.detail h3.section { margin-top: 8px; }.hint { color: var(--atd-grey-700); font-size: 13px; }
-    @media (max-width: 1100px) { .explorer-grid { grid-template-columns: 1fr; } }
+    .explorer-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 270px;
+      gap: 16px;
+      align-items: start;
+    }
+    .detail {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .detail .overage {
+      color: var(--atd-error);
+    }
+    .detail h3.section {
+      margin-top: 8px;
+    }
+    .hint {
+      color: var(--atd-grey-700);
+      font-size: 13px;
+    }
+    @media (max-width: 1100px) {
+      .explorer-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   `,
 })
 export class ExplorerComponent {
@@ -82,24 +127,46 @@ export class ExplorerComponent {
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const prevStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
     const prevEnd = new Date(prevStart.getTime() + (now.getTime() - monthStart.getTime()));
-    const nodeQuery = { ...this.filters.query(), ...row.ancestorFilters, [DIMENSION_TO_FILTER[row.dimension]]: row.value };
+    const nodeQuery = {
+      ...this.filters.query(),
+      ...row.ancestorFilters,
+      [DIMENSION_TO_FILTER[row.dimension]]: row.value,
+    };
     forkJoin({
-      current: this.api.summary({ ...nodeQuery, start: monthStart.toISOString(), end: now.toISOString() }),
-      previous: this.api.summary({ ...nodeQuery, start: prevStart.toISOString(), end: prevEnd.toISOString() }),
-      lineItems: this.api.lineItems(
-        row.dimension === 'resource_name' ? { resource_name: row.value } : undefined,
-        this.filters.granularity(),
-        nodeQuery,
-      ),
-    }).pipe(catchError(() => EMPTY)).subscribe(({ current, previous, lineItems }) => {
-      const currentCost = partitionByCurrency(current.rows).find((amount) => amount.currency === row.currency)?.cost ?? 0;
-      const previousCost = partitionByCurrency(previous.rows).find((amount) => amount.currency === row.currency)?.cost ?? 0;
-      this.selected.set({ ...base, momDelta: currentCost - previousCost, lineItems: lineItems?.rows ?? null });
-    });
+      current: this.api.summary({
+        ...nodeQuery,
+        start: monthStart.toISOString(),
+        end: now.toISOString(),
+      }),
+      previous: this.api.summary({
+        ...nodeQuery,
+        start: prevStart.toISOString(),
+        end: prevEnd.toISOString(),
+      }),
+      lineItems: this.api.lineItems(row.dimension === 'resource_name' ? { resource_name: row.value } : undefined, this.filters.granularity(), nodeQuery),
+    })
+      .pipe(catchError(() => EMPTY))
+      .subscribe(({ current, previous, lineItems }) => {
+        const currentCost = partitionByCurrency(current.rows).find((amount) => amount.currency === row.currency)?.cost ?? 0;
+        const previousCost = partitionByCurrency(previous.rows).find((amount) => amount.currency === row.currency)?.cost ?? 0;
+        this.selected.set({
+          ...base,
+          momDelta: currentCost - previousCost,
+          lineItems: lineItems?.rows ?? null,
+        });
+      });
   }
 
   protected sumItems = (items: LineItemsRow[]) => items.reduce((sum, item) => sum + item.line_items, 0);
   protected sumOverage = (items: LineItemsRow[]) => items.reduce((sum, item) => sum + item.overage_items, 0);
   protected sumMyCost = (items: LineItemsRow[]) => items.reduce((sum, item) => sum + parseCost(item.my_cost), 0);
-  protected openResources(resourceName: string): void { void this.router.navigate(['/resources'], { queryParams: { resource_name: resourceName } }); }
+  protected openResources(row: TreeRow): void {
+    void this.router.navigate(['/resources'], {
+      queryParams: {
+        ...this.filters.toFilterParams(),
+        ...row.ancestorFilters,
+        resource_name: row.value,
+      },
+    });
+  }
 }

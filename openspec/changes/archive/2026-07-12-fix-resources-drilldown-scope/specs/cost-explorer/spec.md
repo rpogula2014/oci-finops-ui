@@ -1,8 +1,5 @@
-## Purpose
+## MODIFIED Requirements
 
-Define the interactive cost-exploration experience, including filtering,
-hierarchical drilldown, node detail, trends, and export.
-## Requirements
 ### Requirement: Filter rail
 The Explorer SHALL show a compact top filter bar (replacing the left rail): one
 horizontal row of dropdowns in fixed order — Environment, Cost Center, Component,
@@ -75,48 +72,3 @@ the node detail panel uses. Explorer-only URL state (`hier`, `open`, `sel`,
 #### Scenario: Drilldown carries ancestor scope
 - **WHEN** the hierarchy is Compartment → Resource Name, the user expands `compartment=prod`, and clicks "Resources ›" on the `boot volume` row
 - **THEN** the Resources route query params include `compartment=prod` and `resource_name=boot volume` (plus date range, grain, and any global dimension filters) and exclude `hier`/`open`/`sel`/`search`, so resources named `boot volume` in other compartments are excluded
-
-### Requirement: Node detail panel
-Selecting any tree row SHALL populate a right panel with that node's cost,
-month-over-month delta, and lineitems stats (`my_cost`, `overage_items`, `line_items`)
-from `/v1/costs/lineitems`, scoped by the row's ancestor values plus global filters.
-Overage counts use the warning/red treatment.
-
-#### Scenario: Node selected
-- **WHEN** the user selects a nested resource-name row under COMPUTE
-- **THEN** the panel fetches lineitems scoped to that resource with `service=COMPUTE` applied and shows my_cost vs cost and overage item count
-
-### Requirement: CSV export
-A "CSV" action SHALL export the currently visible tree (current filters, expanded rows,
-search applied) as a client-generated CSV file including a depth/path column.
-
-#### Scenario: Export
-- **WHEN** the user clicks CSV with COMPUTE expanded
-- **THEN** a file downloads containing exactly the visible rows, each with its hierarchy path, cost, and share columns
-
-### Requirement: Row proportion and trend presentation
-Every tree row SHALL show its share of the parent (top-level rows: share of total) as a
-percentage with an inline cost bar, and a sparkline of its cost over the selected date
-range at the current grain.
-
-#### Scenario: Share rendering
-- **WHEN** COMPUTE is 39,957.95 USD of a 88,266 USD total
-- **THEN** its row shows ~45% with a proportionally filled bar
-
-#### Scenario: Sparkline
-- **WHEN** a row is visible and grain is "day"
-- **THEN** the row shows a small line of its daily cost across the selected range
-
-### Requirement: Noise suppression
-Zero-cost rows SHALL be hidden by default, and rows beyond the top N per level (or below
-a small share threshold) SHALL be collapsed into a single expandable "Other" bucket
-whose cost is the sum of its members. A visible toggle SHALL reveal all rows.
-
-#### Scenario: Zero rows hidden
-- **WHEN** a level contains rows with 0.00 cost
-- **THEN** those rows are not shown unless "show all" is enabled
-
-#### Scenario: Other bucket
-- **WHEN** a level has 30 rows and the tail beyond the top 15 sums to 12.40 USD
-- **THEN** a single "Other (15)" row showing 12.40 USD appears and expands to the hidden rows
-

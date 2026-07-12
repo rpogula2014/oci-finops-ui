@@ -40,13 +40,23 @@ function isZeroCost(cost: string): boolean {
     <div class="tree-head">
       <span class="eyebrow">Cost hierarchy</span>
       <div>
-        <button (click)="showAll.update((value) => !value)">{{ showAll() ? 'Hide noise' : 'Show all' }}</button>
+        <button (click)="showAll.update((value) => !value)">
+          {{ showAll() ? 'Hide noise' : 'Show all' }}
+        </button>
         <button (click)="exportCsv()" [disabled]="!visibleRows().length">CSV ↧</button>
       </div>
     </div>
     <app-panel-state [status]="panel().status" [error]="panel().error">
       <table class="data tree" aria-label="Cost hierarchy">
-        <thead><tr><th scope="col">Dimension</th><th scope="col" class="num">Cost</th><th scope="col">Share</th><th scope="col">Trend</th><th scope="col"></th></tr></thead>
+        <thead>
+          <tr>
+            <th scope="col">Dimension</th>
+            <th scope="col" class="num">Cost</th>
+            <th scope="col">Share</th>
+            <th scope="col">Trend</th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
         <tbody>
           @for (row of visibleRows(); track row.id) {
             <tr [class.selected]="filters.selectedPath() === row.id" (click)="select(row)" tabindex="0" (keydown.enter)="select(row)">
@@ -55,9 +65,13 @@ function isZeroCost(cost: string): boolean {
                   <button class="expander" (click)="toggle(row); $event.stopPropagation()" [attr.aria-label]="isExpanded(row) ? 'Collapse row' : 'Expand row'">
                     {{ isExpanded(row) ? '−' : '+' }}
                   </button>
-                } @else { <span class="expander-placeholder"></span> }
+                } @else {
+                  <span class="expander-placeholder"></span>
+                }
                 {{ labelFor(row.value) }}
-                @if (row.loading) { <span class="loading">Loading…</span> }
+                @if (row.loading) {
+                  <span class="loading">Loading…</span>
+                }
               </td>
               <td class="num">{{ row.cost | money: row.currency }}</td>
               <td>
@@ -77,16 +91,62 @@ function isZeroCost(cost: string): boolean {
     </app-panel-state>
   `,
   styles: `
-    .tree-head { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
-    .tree-head div { display: flex; gap: 8px; }
-    td.num, th.num { text-align: right; }
-    tbody tr { cursor: pointer; } tbody tr.selected { background: var(--atd-logistics-blue); }
-    .expander { width: 22px; padding: 0; border: none; background: transparent; font-size: 18px; color: var(--atd-distribution-blue); }
-    .expander-placeholder { display: inline-block; width: 22px; }
-    .loading { color: var(--atd-grey-700); font-size: 12px; margin-left: 6px; }
-    .share { display: inline-block; min-width: 42px; font-variant-numeric: tabular-nums; }
-    .share-bar { display: inline-block; vertical-align: middle; width: 72px; height: 6px; border-radius: 99px; overflow: hidden; background: var(--atd-grey-300); }
-    .share-bar i { display: block; height: 100%; background: var(--atd-distribution-blue); }
+    .tree-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 8px 0;
+    }
+    .tree-head div {
+      display: flex;
+      gap: 8px;
+    }
+    td.num,
+    th.num {
+      text-align: right;
+    }
+    tbody tr {
+      cursor: pointer;
+    }
+    tbody tr.selected {
+      background: var(--atd-logistics-blue);
+    }
+    .expander {
+      width: 22px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      font-size: 18px;
+      color: var(--atd-distribution-blue);
+    }
+    .expander-placeholder {
+      display: inline-block;
+      width: 22px;
+    }
+    .loading {
+      color: var(--atd-grey-700);
+      font-size: 12px;
+      margin-left: 6px;
+    }
+    .share {
+      display: inline-block;
+      min-width: 42px;
+      font-variant-numeric: tabular-nums;
+    }
+    .share-bar {
+      display: inline-block;
+      vertical-align: middle;
+      width: 72px;
+      height: 6px;
+      border-radius: 99px;
+      overflow: hidden;
+      background: var(--atd-grey-300);
+    }
+    .share-bar i {
+      display: block;
+      height: 100%;
+      background: var(--atd-distribution-blue);
+    }
   `,
 })
 export class TreeTableComponent {
@@ -97,7 +157,10 @@ export class TreeTableComponent {
   protected readonly labels = DIMENSION_LABELS;
   protected readonly showAll = signal(false);
   private readonly roots = signal<TreeRow[]>([]);
-  protected readonly panel = signal<{ status: PanelStatus; error: ApiError | null }>({ status: 'loading', error: null });
+  protected readonly panel = signal<{ status: PanelStatus; error: ApiError | null }>({
+    status: 'loading',
+    error: null,
+  });
 
   protected readonly visibleRows = computed(() => {
     const rows: TreeRow[] = [];
@@ -116,7 +179,12 @@ export class TreeTableComponent {
   });
 
   constructor() {
-    const key = computed(() => ({ query: this.filters.query(), hierarchy: this.filters.hierarchy(), grain: this.filters.granularity(), showAll: this.showAll() }));
+    const key = computed(() => ({
+      query: this.filters.query(),
+      hierarchy: this.filters.hierarchy(),
+      grain: this.filters.granularity(),
+      showAll: this.showAll(),
+    }));
     toObservable(key)
       .pipe(
         debounceTime(150),
@@ -164,7 +232,13 @@ export class TreeTableComponent {
   }
 
   protected openResources(row: TreeRow): void {
-    void this.router.navigate(['/resources'], { queryParams: { ...this.filters.toQueryParams(), resource_name: row.value } });
+    void this.router.navigate(['/resources'], {
+      queryParams: {
+        ...this.filters.toFilterParams(),
+        ...row.ancestorFilters,
+        resource_name: row.value,
+      },
+    });
   }
 
   protected exportCsv(): void {
@@ -194,9 +268,18 @@ export class TreeTableComponent {
         const cost = tail.reduce((sum, row) => sum + parseCost(row.cost), 0).toFixed(2);
         const path = [...parentPath, `Other (${tail.length})`];
         result.push({
-          id: path.map(encodeURIComponent).join('|'), path, ancestorFilters, depth, dimension: this.filters.hierarchy()[depth],
-          value: `Other (${tail.length})`, cost, currency: tail[0].currency, resources: tail.reduce((sum, row) => sum + row.resources, 0),
-          share: parseCost(cost) / total, children: tail.map((row) => this.rowFrom(row, depth, parentPath, ancestorFilters, total)), synthetic: true,
+          id: path.map(encodeURIComponent).join('|'),
+          path,
+          ancestorFilters,
+          depth,
+          dimension: this.filters.hierarchy()[depth],
+          value: `Other (${tail.length})`,
+          cost,
+          currency: tail[0].currency,
+          resources: tail.reduce((sum, row) => sum + row.resources, 0),
+          share: parseCost(cost) / total,
+          children: tail.map((row) => this.rowFrom(row, depth, parentPath, ancestorFilters, total)),
+          synthetic: true,
         });
       }
     }
@@ -207,8 +290,17 @@ export class TreeTableComponent {
     const path = [...parentPath, row.dimension_value];
     const dimension = this.filters.hierarchy()[depth];
     return {
-      id: path.map(encodeURIComponent).join('|'), path, ancestorFilters, depth, dimension, value: row.dimension_value,
-      cost: row.cost, currency: row.currency, resources: row.resources, share: parseCost(row.cost) / total, series: row.series,
+      id: path.map(encodeURIComponent).join('|'),
+      path,
+      ancestorFilters,
+      depth,
+      dimension,
+      value: row.dimension_value,
+      cost: row.cost,
+      currency: row.currency,
+      resources: row.resources,
+      share: parseCost(row.cost) / total,
+      series: row.series,
     };
   }
 
@@ -217,10 +309,17 @@ export class TreeTableComponent {
     row.loading = true;
     this.roots.update((roots) => [...roots]);
     const nextDimension = this.filters.hierarchy()[row.depth + 1];
-    const query: CostQuery = { ...this.filters.query(), ...row.ancestorFilters, [DIMENSION_TO_FILTER[row.dimension]]: row.value };
+    const query: CostQuery = {
+      ...this.filters.query(),
+      ...row.ancestorFilters,
+      [DIMENSION_TO_FILTER[row.dimension]]: row.value,
+    };
     try {
       const { rows } = await firstValueFrom(this.api.breakdown(query, nextDimension, 100, true, this.filters.granularity()));
-      row.children = this.makeRows(rows, row.depth + 1, row.path, { ...row.ancestorFilters, [DIMENSION_TO_FILTER[row.dimension]]: row.value });
+      row.children = this.makeRows(rows, row.depth + 1, row.path, {
+        ...row.ancestorFilters,
+        [DIMENSION_TO_FILTER[row.dimension]]: row.value,
+      });
     } catch {
       row.children = [];
     } finally {

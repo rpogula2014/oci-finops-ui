@@ -41,7 +41,7 @@ interface LandingData {
   template: `
     <div class="page-head">
       <div>
-        <span class="eyebrow">Executive Summary</span>
+        <span class="eyebrow">Cost Summary</span>
         <h1>Cost overview</h1>
       </div>
       <label class="group-pick">

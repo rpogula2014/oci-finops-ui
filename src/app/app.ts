@@ -58,7 +58,7 @@ import { currenciesOf } from './core/currency';
     <div class="layout">
       <nav class="sidenav" aria-label="Main navigation">
         <a routerLink="/summary" routerLinkActive="active">
-          <lucide-icon [img]="icons.summary" [size]="18" aria-hidden="true" />Executive Summary
+          <lucide-icon [img]="icons.summary" [size]="18" aria-hidden="true" />Cost Summary
         </a>
         <a routerLink="/explorer" routerLinkActive="active">
           <lucide-icon [img]="icons.explorer" [size]="18" aria-hidden="true" />Cost Explorer

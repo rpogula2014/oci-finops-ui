@@ -24,10 +24,20 @@ describe('FiltersStore', () => {
     expect(store.filter('env')()).toBe('dev');
     expect(store.granularity()).toBe('week');
     expect(store.query()).toEqual(
-      expect.objectContaining({ env: 'dev', service: 'COMPUTE', start: '2026-06-01T00:00:00.000Z' }),
+      expect.objectContaining({
+        env: 'dev',
+        service: 'COMPUTE',
+        start: '2026-06-01T00:00:00.000Z',
+      }),
     );
     expect(store.toQueryParams()).toEqual(
-      expect.objectContaining({ env: 'dev', service: 'COMPUTE', grain: 'week', hier: 'compartment,service', search: 'prod' }),
+      expect.objectContaining({
+        env: 'dev',
+        service: 'COMPUTE',
+        grain: 'week',
+        hier: 'compartment,service',
+        search: 'prod',
+      }),
     );
     expect(store.expandedPaths()).toEqual(['prod-comp|COMPUTE']);
     expect(store.selectedPath()).toBe('prod-comp|COMPUTE');
@@ -37,6 +47,26 @@ describe('FiltersStore', () => {
     store.setFilter('env', '');
     expect(store.query()['env']).toBe('');
     expect('cost_center' in store.query()).toBe(false);
+  });
+
+  it('serializes only shared filters for cross-view navigation', () => {
+    store.hydrateFromParams({
+      env: 'dev',
+      start: '2026-06-01T00:00:00.000Z',
+      end: '2026-06-30T00:00:00.000Z',
+      grain: 'week',
+      hier: 'service,compartment',
+      search: 'boot',
+      open: 'COMPUTE',
+      sel: 'COMPUTE',
+    });
+
+    expect(store.toFilterParams()).toEqual({
+      env: 'dev',
+      start: '2026-06-01T00:00:00.000Z',
+      end: '2026-06-30T00:00:00.000Z',
+      grain: 'week',
+    });
   });
 
   // API rejects ranges over 400 days — clamp client-side per spec.
@@ -56,6 +86,12 @@ describe('FiltersStore', () => {
 
   it('starts with the cost-allocation hierarchy used by Explorer', () => {
     expect(store.hierarchy()).toEqual(DEFAULT_HIERARCHY);
-    expect(store.hierarchy()).toEqual(['compartment', 'cost_center', 'component_type', 'resource_type', 'resource_name']);
+    expect(store.hierarchy()).toEqual([
+      'compartment',
+      'cost_center',
+      'component_type',
+      'resource_type',
+      'resource_name',
+    ]);
   });
 });

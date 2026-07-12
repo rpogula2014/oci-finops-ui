@@ -1,23 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, InjectionToken, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
-import {
-  ApiError,
-  BreakdownRow,
-  CostQuery,
-  Dimension,
-  Envelope,
-  EnvelopeMeta,
-  ExecSummary,
-  FiltersRow,
-  Freshness,
-  Granularity,
-  LineItemsRow,
-  ResourceDetail,
-  ResourceRow,
-  SummaryRow,
-  TimeseriesRow,
-} from './api.types';
+import { ApiError, BreakdownRow, CostQuery, Dimension, Envelope, EnvelopeMeta, ExecSummary, FiltersRow, Freshness, Granularity, LineItemsRow, ResourceDetail, ResourceRow, SummaryRow, TimeseriesRow } from './api.types';
 
 /** Overridable for non-proxied deployments; default relies on the dev-server proxy. */
 export const API_BASE_URL = new InjectionToken<string>('API_BASE_URL', {
@@ -84,35 +68,19 @@ export class CostApiService {
     return this.get('/v1/costs/timeseries', toParams(query, { granularity }));
   }
 
-  breakdown(
-    query: CostQuery,
-    dimension: Dimension,
-    limit = 20,
-    series = false,
-    granularity: Granularity = 'day',
-  ): Observable<Unwrapped<BreakdownRow[]>> {
+  breakdown(query: CostQuery, dimension: Dimension, limit = 20, series = false, granularity: Granularity = 'day'): Observable<Unwrapped<BreakdownRow[]>> {
     return this.get('/v1/costs/breakdown', toParams(query, { dimension, limit, series: series ? 'true' : undefined, granularity }));
   }
 
-  resources(
-    query: CostQuery,
-    page = 1,
-    limit = 50,
-    sort: 'cost' | 'resource_name' | 'service' | 'compartment' = 'cost',
-    direction: 'asc' | 'desc' = 'desc',
-  ): Observable<Unwrapped<ResourceRow[]>> {
+  resources(query: CostQuery, page = 1, limit = 50, sort: 'cost' | 'resource_name' | 'service' | 'compartment' = 'cost', direction: 'asc' | 'desc' = 'desc'): Observable<Unwrapped<ResourceRow[]>> {
     return this.get('/v1/costs/resources', toParams(query, { page, limit, sort, direction }));
   }
 
-  resourceDetail(ocid: string): Observable<Unwrapped<ResourceDetail[]>> {
-    return this.get(`/v1/costs/resources/${encodeURIComponent(ocid)}`);
+  resourceDetail(ocid: string, query: CostQuery = {}): Observable<Unwrapped<ResourceDetail[]>> {
+    return this.get(`/v1/costs/resources/${encodeURIComponent(ocid)}`, toParams(query));
   }
 
-  lineItems(
-    ref: { resource_name: string } | { ocid: string } | undefined,
-    granularity: Granularity = 'day',
-    query: CostQuery = {},
-  ): Observable<Unwrapped<LineItemsRow[]>> {
+  lineItems(ref: { resource_name: string } | { ocid: string } | undefined, granularity: Granularity = 'day', query: CostQuery = {}): Observable<Unwrapped<LineItemsRow[]>> {
     return this.get('/v1/costs/lineitems', toParams(query, { ...(ref ?? {}), granularity }));
   }
 

@@ -37,7 +37,11 @@ describe('CostApiService', () => {
     service.breakdown({}, 'service').subscribe({ error: (e) => (error = e) });
     http
       .expectOne((req) => req.url === '/v1/costs/breakdown')
-      .flush({ data: null, meta: {}, error: { code: 'VALIDATION_ERROR', message: 'unsupported dimension' } });
+      .flush({
+        data: null,
+        meta: {},
+        error: { code: 'VALIDATION_ERROR', message: 'unsupported dimension' },
+      });
     expect(error).toBeInstanceOf(ApiError);
     expect(error!.code).toBe('VALIDATION_ERROR');
     expect(error!.message).toBe('unsupported dimension');
@@ -64,5 +68,19 @@ describe('CostApiService', () => {
     expect(breakdown.request.params.get('series')).toBe('true');
     expect(breakdown.request.params.get('granularity')).toBe('week');
     breakdown.flush({ data: [], meta: {}, error: null });
+  });
+
+  it('passes inherited scope to a resource-detail request', () => {
+    service
+      .resourceDetail('ocid1.resource.example', {
+        start: '2026-06-01T00:00:00.000Z',
+        end: '2026-06-30T00:00:00.000Z',
+        compartment: 'prod',
+      })
+      .subscribe();
+    const req = http.expectOne((r) => r.url === '/v1/costs/resources/ocid1.resource.example');
+    expect(req.request.params.get('start')).toBe('2026-06-01T00:00:00.000Z');
+    expect(req.request.params.get('compartment')).toBe('prod');
+    req.flush({ data: [], meta: {}, error: null });
   });
 });

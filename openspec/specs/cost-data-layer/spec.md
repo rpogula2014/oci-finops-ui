@@ -1,5 +1,6 @@
+## Purpose
+Client data layer for the cost API: typed service, shared filter state, currency and untagged-value handling.
 ## Requirements
-
 ### Requirement: Typed API client
 A single `CostApiService` SHALL expose one typed method per endpoint (summary, timeseries, breakdown, resources, resource detail, lineitems, filters, freshness, healthz) against the envelope contract `{data, meta, error}`. `cost` and `my_cost` fields SHALL be typed as strings (decimal strings from the API) and parsed to number only at display/chart boundaries. Envelope `data` SHALL be typed as an object (not array) for `/freshness` and `/healthz`.
 
@@ -41,7 +42,22 @@ Daily (start=today 00:00 with delta vs previous day), MTD (start=1st of month), 
 - **THEN** the Daily card shows today's cost and the signed delta vs yesterday
 
 ### Requirement: Untagged value handling
-Empty-string values returned by `/v1/costs/filters` SHALL be presented as "(untagged)" in dropdowns. Because the API ignores empty query params, the client SHALL translate a UI-side `""` filter value to the API sentinel `__untagged__` (which the API matches as dimension = '') on every request. Rows where the API returns `untagged · <product_description>` SHALL be rendered verbatim.
+Empty-string values returned by `/v1/costs/filters` SHALL be presented as "(untagged)" in dropdowns. Because the API ignores empty query params, the client SHALL translate a UI-side `""` filter value to the API sentinel `__untagged__` (which the API matches as dimension = '') on every request. Composite untagged labels returned by the API SHALL be rendered verbatim.
+
+The `resource_name` dimension is an exception: the API SHALL resolve it as
+`untagged · <product_service> · …<OCID tail>` whenever the resource-name tag is
+empty — consistently across breakdown values, filter options, filter matching,
+and the resources/detail queries — so `resource_name` never surfaces as `""`.
+The composite label is a first-class filterable value: sending it back verbatim
+as `resource_name` selects exactly the rows it aggregated. The `__untagged__`
+sentinel therefore no longer applies to `resource_name` (the client has no `""`
+value to translate).
+
+`product_service` is used (not `product_description`, which is a SKU/charge
+description with several values per OCID) because it is 1:1 per resource; the
+OCID tail disambiguates resources sharing a service. A resource billed under
+multiple services (observed only for tenancy-level charges on the tenancy OCID)
+MAY appear as one bucket per service.
 
 #### Scenario: Blank environment filter option
 - **WHEN** the filters endpoint returns `""` in `environments`
@@ -50,6 +66,14 @@ Empty-string values returned by `/v1/costs/filters` SHALL be presented as "(unta
 #### Scenario: Untagged series is not the total
 - **WHEN** a per-value timeseries is requested for the untagged bucket of a dimension
 - **THEN** it returns only rows where that dimension is empty, never the unfiltered total
+
+#### Scenario: Untagged resource name in breakdown
+- **WHEN** breakdown by `resource_name` includes rows whose resource-name tag is empty
+- **THEN** those rows return `untagged · <product_service> · …<OCID tail>` as the dimension value (one row per resource), not `""`
+
+#### Scenario: Composite resource name round-trips as a filter
+- **WHEN** the client sends a composite untagged `resource_name` value verbatim
+- **THEN** the API matches exactly the rows aggregated under that breakdown value
 
 ### Requirement: Currency row hygiene
 Aggregation SHALL drop stray API rows having blank currency and zero cost; a blank-currency row with non-zero cost is kept and surfaced.
@@ -64,3 +88,4 @@ Every data panel SHALL implement loading (skeleton), empty, and error (envelope 
 #### Scenario: Empty result
 - **WHEN** an endpoint returns `data: []`
 - **THEN** the panel shows an explicit empty state, not a blank chart
+

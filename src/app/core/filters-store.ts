@@ -2,16 +2,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import { Params } from '@angular/router';
 import { CostQuery, Dimension, Granularity } from './api.types';
 
-export const DIMENSION_FILTER_KEYS = [
-  'env',
-  'cost_center',
-  'component_type',
-  'compartment',
-  'service',
-  'resource_type',
-  'resource_name',
-  'ocid',
-] as const;
+export const DIMENSION_FILTER_KEYS = ['env', 'cost_center', 'component_type', 'compartment', 'service', 'resource_type', 'resource_name', 'ocid'] as const;
 
 export type DimensionFilterKey = (typeof DIMENSION_FILTER_KEYS)[number];
 
@@ -38,13 +29,7 @@ export const DIMENSION_LABELS: Record<Dimension, string> = {
 
 /** API max range is 400 days. */
 export const MAX_RANGE_DAYS = 400;
-export const DEFAULT_HIERARCHY: Dimension[] = [
-  'compartment',
-  'cost_center',
-  'component_type',
-  'resource_type',
-  'resource_name',
-];
+export const DEFAULT_HIERARCHY: Dimension[] = ['compartment', 'cost_center', 'component_type', 'resource_type', 'resource_name'];
 
 function defaultRange(): { start: string; end: string } {
   const end = new Date();
@@ -72,9 +57,7 @@ export class FiltersStore {
   readonly expandedPaths = signal<string[]>([]);
   readonly selectedPath = signal<string | null>(null);
 
-  private readonly filterSignals = Object.fromEntries(
-    DIMENSION_FILTER_KEYS.map((key) => [key, signal<string | null>(null)]),
-  ) as Record<DimensionFilterKey, ReturnType<typeof signal<string | null>>>;
+  private readonly filterSignals = Object.fromEntries(DIMENSION_FILTER_KEYS.map((key) => [key, signal<string | null>(null)])) as Record<DimensionFilterKey, ReturnType<typeof signal<string | null>>>;
 
   filter(key: DimensionFilterKey) {
     return this.filterSignals[key].asReadonly();
@@ -114,18 +97,25 @@ export class FiltersStore {
 
   /** Router query params representing current Explorer state. */
   toQueryParams(): Params {
-    const params: Params = {};
-    for (const key of DIMENSION_FILTER_KEYS) {
-      const value = this.filterSignals[key]();
-      if (value !== null) params[key] = value;
-    }
-    params['start'] = this.start();
-    params['end'] = this.end();
-    params['grain'] = this.granularity();
+    const params = this.toFilterParams();
     params['hier'] = this.hierarchy().join(',');
     if (this.search()) params['search'] = this.search();
     if (this.expandedPaths().length) params['open'] = this.expandedPaths().join(',');
     if (this.selectedPath()) params['sel'] = this.selectedPath();
+    return params;
+  }
+
+  /** Nav params for cross-view drilldown: range, grain, and dimension filters only. */
+  toFilterParams(): Params {
+    const params: Params = {
+      start: this.start(),
+      end: this.end(),
+      grain: this.granularity(),
+    };
+    for (const key of DIMENSION_FILTER_KEYS) {
+      const value = this.filterSignals[key]();
+      if (value !== null) params[key] = value;
+    }
     return params;
   }
 
