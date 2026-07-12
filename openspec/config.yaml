@@ -1,0 +1,38 @@
+schema: spec-driven
+
+# Shown to AI when creating artifacts for changes under this openspec root.
+context: |
+  Project: OCI FinOps cost dashboard — Angular UI + Go cost API over ClickHouse.
+
+  Scope of this openspec root: everything under UI/ —
+  - /Users/jaswanthpogula/git/ATD-AI/oci-finops-ui: Angular 22 (standalone components, signals, OnPush,
+    toObservable/rxjs interop), ngx-echarts 22 / echarts 6, TypeScript 6.
+    Views: summary (landing), explorer, trends. Shared state in
+    core/filters-store; all HTTP via core/cost-api.service.ts.
+  - /Users/jaswanthpogula/git/ATD-AI/oci-finops-api: Go 1.25, stdlib net/http mux only (no framework, no new deps
+    without strong reason), clickhouse-go v2. Envelope contract
+    {data, meta, error}; costs are decimal strings, parsed only at display.
+    Build/tests need -tags clickhouse for the real driver; stub otherwise.
+
+  Data source: ClickHouse view oci_cost_report_attributed; tag dimensions are
+  map lookups (ATD-Billing.*, ATD-Ops.*). "" filter value means unfiltered;
+  "__untagged__" sentinel selects empty-tag rows.
+
+  Conventions:
+  - Surgical changes; match existing style; comments only for non-obvious "why".
+  - Existing endpoints are consumed by multiple views — additive API changes
+    preferred over breaking ones.
+  - Never kill/restart the developer's running cost-api or ng serve processes;
+    verify new backend builds on a spare port instead.
+  - Update /Users/jaswanthpogula/git/ATD-AI/oci-finops-api/openapi.yaml and /Users/jaswanthpogula/git/ATD-AI/oci-finops-api/README.md in the same
+    change that adds or modifies endpoints.
+
+rules:
+  proposal:
+    - Keep proposals under 2 pages; state the measurable problem (calls, latency, cost).
+  design:
+    - Prefer the simplest design; call out rejected alternatives briefly.
+    - No new Go dependencies without justification against stdlib.
+  tasks:
+    - Every endpoint task includes tests, openapi.yaml, and README updates.
+    - Include a browser/live verification task for UI-facing changes.

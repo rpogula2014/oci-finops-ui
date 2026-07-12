@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#eceae4;font-family:'Poppins',system-ui,sans-serif;color:#1a1a1a}
+  .dv-turn{padding:44px 48px 36px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+  .dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}
+  .dv-tid{font:700 10px 'Kalam',monospace;padding:3px 8px;background:#142848;color:#fff;border-radius:4px;text-decoration:none}
+  .dv-tname{font:600 14px/1.2 'Poppins',sans-serif;color:#142848}
+  .dv-intro{max-width:760px;margin:0 0 26px;font:400 13px/1.6 'Poppins',sans-serif;color:#555}
+  .dv-opts{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start}
+  .dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px}
+  .dv-oid{font:700 10.5px 'Kalam',monospace;padding:3px 8px;background:rgba(20,40,72,.1);color:#142848;border-radius:5px;text-decoration:none}
+  .dv-olabel{display:flex;align-items:baseline;gap:9px;font:400 12px/1.4 'Poppins',sans-serif;color:#666;max-width:660px}
+  .dv-olabel b{color:#142848;font-weight:600}
+  .dv-opt:target .dv-oid{background:#FF4A4E;color:#fff}
+  .dv-next{margin:26px 0 0;font:400 12.5px/1.7 'Poppins',sans-serif;color:#555}
+  .dv-next a{color:#0076BE;text-decoration:none;font-weight:600}
+
+  /* ---- wireframe kit ---- */
+  .wf{width:660px;background:#fff;border:1px solid #d7d5cf;border-radius:10px;box-shadow:0 2px 10px rgba(20,40,72,.06);overflow:hidden;font-size:12px}
+  .wf-tall{width:660px}
+  .bar{display:flex;align-items:center;gap:12px;background:#142848;color:#fff;padding:11px 16px}
+  .bar .brand{font:700 14px 'Poppins';letter-spacing:.02em}
+  .bar .brand small{font:700 8px 'Poppins';letter-spacing:.18em;opacity:.6;display:block;margin-top:-2px}
+  .bar .spacer{flex:1}
+  .bar .pill{background:rgba(255,255,255,.14);border-radius:4px;padding:5px 10px;font:500 10.5px 'Poppins';display:flex;align-items:center;gap:6px}
+  .bar .fresh{font:400 9.5px 'Poppins';opacity:.7}
+  .body{padding:16px}
+  .row{display:flex;gap:12px}
+  .eyebrow{font:700 8.5px 'Poppins';letter-spacing:.14em;text-transform:uppercase;color:#8a8f96;margin:0 0 8px}
+  .sec-t{font:700 11.5px 'Poppins';color:#142848;margin:0}
+  /* filter chips */
+  .chips{display:flex;flex-wrap:wrap;gap:7px;padding:10px 16px;border-bottom:1px dashed #ddd;background:#f7f8fa}
+  .chip{border:1px solid #cfd4da;border-radius:4px;background:#fff;padding:5px 9px;font:500 10px 'Poppins';color:#3D4444;display:flex;align-items:center;gap:6px}
+  .chip:after{content:'▾';color:#9aa0a6;font-size:8px}
+  .chip.tag{border-style:dashed;border-color:#b9c0c7;color:#0076BE}
+  /* kpi */
+  .kpis{display:flex;gap:12px}
+  .kpi{flex:1;border:1px solid #e5e3dd;border-radius:8px;padding:12px 13px;background:#fff}
+  .kpi.hero{border:1.5px solid #FF4A4E;background:#fff5f5}
+  .kpi .k-l{font:700 8.5px 'Poppins';letter-spacing:.1em;text-transform:uppercase;color:#8a8f96}
+  .kpi .k-n{font:700 22px 'Poppins';color:#142848;margin:5px 0 3px;letter-spacing:-.01em}
+  .kpi.hero .k-n{color:#c62d31}
+  .delta{font:600 10px 'Poppins';display:inline-flex;align-items:center;gap:3px}
+  .delta.up{color:#c62d31}.delta.down{color:#2f8f4e}
+  .k-sub{font:400 9.5px 'Poppins';color:#9aa0a6}
+  /* placeholder charts */
+  .panel{border:1px dashed #cfd4da;border-radius:8px;padding:12px;background:#fbfbfa}
+  .panel.solid{border-style:solid;border-color:#e5e3dd;background:#fff}
+  .ph-cap{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+  .toggle{display:flex;border:1px solid #d7d5cf;border-radius:5px;overflow:hidden}
+  .toggle span{font:500 9px 'Poppins';padding:3px 7px;color:#8a8f96;border-right:1px solid #eee}
+  .toggle span.on{background:#142848;color:#fff}
+  svg{display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:9px;margin-top:8px}
+  .legend i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:-1px}
+  .legend span{font:400 9.5px 'Poppins';color:#666}
+  /* table */
+  .tbl{width:100%;border-collapse:collapse}
+  .tbl th{font:700 8.5px 'Poppins';letter-spacing:.06em;text-transform:uppercase;color:#8a8f96;text-align:left;padding:6px 8px;border-bottom:1px solid #e5e3dd}
+  .tbl td{font:400 10px 'Poppins';color:#3D4444;padding:7px 8px;border-bottom:1px solid #f1efe9}
+  .tbl td.num{text-align:right;font-weight:600;color:#142848}
+  .tbl tr:hover td{background:#f7f8fa}
+  .drill{color:#0076BE;font-weight:600;cursor:default}
+  /* left rail */
+  .split{display:flex}
+  .rail{width:172px;border-right:1px solid #eee;padding:14px 13px;background:#fafbfc;flex:none}
+  .rail h5{font:700 8px 'Poppins';letter-spacing:.12em;text-transform:uppercase;color:#8a8f96;margin:0 0 8px}
+  .rail .grp{margin-bottom:14px}
+  .rail .opt{display:flex;align-items:center;gap:7px;font:400 10px 'Poppins';color:#3D4444;padding:4px 0}
+  .rail .opt .rd{width:11px;height:11px;border:1.5px solid #b9c0c7;border-radius:50%;flex:none}
+  .rail .opt .rd.on{border-color:#142848;background:radial-gradient(circle,#142848 42%,#fff 46%)}
+  .rail .opt .cb{width:11px;height:11px;border:1.5px solid #b9c0c7;border-radius:2px;flex:none}
+  .rail .opt .cb.on{background:#142848;border-color:#142848}
+  .rail .mini{font:400 9px 'Poppins';color:#9aa0a6}
+  /* tabs */
+  .tabs{display:flex;gap:2px;padding:0 16px;border-bottom:1px solid #e5e3dd;background:#fff}
+  .tab{font:600 11px 'Poppins';color:#8a8f96;padding:11px 14px;border-bottom:2px solid transparent}
+  .tab.on{color:#142848;border-bottom-color:#FF4A4E}
+  /* breadcrumb */
+  .crumb{display:flex;align-items:center;gap:7px;padding:10px 16px;border-bottom:1px dashed #ddd;font:500 10.5px 'Poppins';flex-wrap:wrap}
+  .crumb a{color:#0076BE;text-decoration:none}
+  .crumb .sep{color:#c4c4c4}
+  .crumb .here{color:#142848;font-weight:700}
+  /* small multiples */
+  .sm{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}
+  .sm .cell{border:1px solid #eee;border-radius:6px;padding:8px 7px;background:#fff}
+  .sm .cell .t{font:700 8px 'Poppins';color:#142848;margin-bottom:6px;line-height:1.2;height:20px}
+  .note{margin-top:10px;font:400 11px/1.4 'Kalam','Poppins';color:#c62d31;border:1px dashed #f3b6b8;background:#fff5f5;border-radius:6px;padding:7px 10px}
+  .note b{font-weight:700}
+  .draw-t{font:700 12px 'Kalam';color:#8a8f96}
+  .gauge-wrap{display:flex;align-items:center;gap:12px}
+  .anno{font:400 11px 'Kalam';color:#0076BE}
+  /* app nav */
+  .nav{width:186px;flex:none;border-right:1px solid #eee;padding:12px 10px;background:#fff}
+  .nav .brandrow{display:none}
+  .nav a{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:6px;font:500 11px 'Poppins';color:#3D4444;text-decoration:none;margin-bottom:2px}
+  .nav a .ic{width:14px;height:14px;border:1.5px solid #b9c0c7;border-radius:3px;flex:none}
+  .nav a.on{background:#E1EBF4;color:#142848;font-weight:700}
+  .nav a.on .ic{border-color:#142848;background:#142848}
+  .nav h5{font:700 8px 'Poppins';letter-spacing:.12em;text-transform:uppercase;color:#8a8f96;margin:14px 10px 6px}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t2">
+  <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">The chosen direction — Exec Summary landing + Cost Explorer (cockpit&nbsp;+&nbsp;drilldown)</span></div>
+  <p class="dv-intro">Your pick: <a class="dv-oid" href="#1a">1a</a> as the executive landing view, inside a persistent ATD app shell, with a <a class="dv-oid" href="#1b">1b</a> filter-rail cockpit that hosts the <a class="dv-oid" href="#1c">1c</a> breadcrumb group-by drilldown. Two views of one app, shown below. Full build spec is in <b>CLAUDE-CODE-PROMPT.md</b> (download card below).</p>
+  <div class="dv-opts">
+
+    <!-- ===== 2a shell + exec summary ===== -->
+    <div class="dv-opt" id="2a">
+      <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a><span><b>App shell · Executive Summary (landing).</b> Distribution-Blue top bar, white left nav, KPI band, trend, breakdowns, 5-tag small multiples. Read-only, board-ready.</span></div>
+      <div class="wf" style="width:720px">
+        <div class="bar">
+          <div class="brand">CostScope<small>OCI FINOPS</small></div>
+          <div class="spacer"></div>
+          <div class="pill">Last 30 days ▾</div><div class="pill">USD ▾</div>
+          <div class="fresh">Data through Jul 11, 08:00</div>
+        </div>
+        <div class="split">
+          <div class="nav">
+            <h5 style="margin-top:2px">Analyze</h5>
+            <a class="on"><span class="ic"></span>Executive Summary</a>
+            <a><span class="ic"></span>Cost Explorer</a>
+            <a><span class="ic"></span>Resources</a>
+            <a><span class="ic"></span>Trends</a>
+            <h5>Watch</h5>
+            <a><span class="ic"></span>Anomalies</a>
+            <a><span class="ic"></span>Budgets</a>
+          </div>
+          <div class="body" style="flex:1">
+            <div class="kpis" style="margin-bottom:12px">
+              <div class="kpi"><div class="k-l">Daily Cost</div><div class="k-n">$12,480</div><span class="delta up">▲ 6.2% vs yest.</span></div>
+              <div class="kpi"><div class="k-l">Month to date</div><div class="k-n">$284,910</div><div class="k-sub">72% of $394K forecast</div></div>
+              <div class="kpi hero"><div class="k-l">Year to date</div><div class="k-n">$2.71M</div><span class="delta up">▲ 11% vs LY</span></div>
+            </div>
+            <div class="panel solid" style="margin-bottom:12px">
+              <div class="ph-cap"><p class="sec-t">Cost over time</p>
+                <div class="toggle"><span>Hr</span><span class="on">Day</span><span>Wk</span><span>Mo</span></div></div>
+              <svg viewBox="0 0 640 96" width="100%" height="96" preserveAspectRatio="none">
+                <polygon fill="#14284811" points="0,68 64,60 128,72 192,50 256,58 320,40 384,48 448,30 512,42 576,24 640,34 640,86 0,86"/>
+                <polyline fill="none" stroke="#142848" stroke-width="2.5" points="0,68 64,60 128,72 192,50 256,58 320,40 384,48 448,30 512,42 576,24 640,34"/>
+              </svg>
+            </div>
+            <div class="row" style="margin-bottom:12px">
+              <div class="panel" style="flex:1">
+                <p class="sec-t" style="margin-bottom:9px">Cost by Service</p>
+                <div class="row" style="align-items:center;gap:12px">
+                  <svg viewBox="0 0 80 80" width="72" height="72"><circle cx="40" cy="40" r="30" fill="none" stroke="#142848" stroke-width="14" stroke-dasharray="80 108"/><circle cx="40" cy="40" r="30" fill="none" stroke="#0076BE" stroke-width="14" stroke-dasharray="45 143" stroke-dashoffset="-80"/><circle cx="40" cy="40" r="30" fill="none" stroke="#8fb7d9" stroke-width="14" stroke-dasharray="35 153" stroke-dashoffset="-125"/><circle cx="40" cy="40" r="30" fill="none" stroke="#d7d5cf" stroke-width="14" stroke-dasharray="28 160" stroke-dashoffset="-160"/></svg>
+                  <div class="legend" style="flex-direction:column;gap:4px;margin:0">
+                    <span><i style="background:#142848"></i>Compute</span><span><i style="background:#0076BE"></i>Block Storage</span><span><i style="background:#8fb7d9"></i>Database</span><span><i style="background:#d7d5cf"></i>Network +12</span></div>
+                </div>
+              </div>
+              <div class="panel" style="flex:1">
+                <p class="sec-t" style="margin-bottom:9px">Cost by Compartment</p>
+                <svg viewBox="0 0 280 92" width="100%" height="92"><g font-family="Poppins" font-size="8" fill="#8a8f96">
+                  <rect x="64" y="4" width="196" height="11" rx="2" fill="#142848"/><text x="0" y="12">prod</text>
+                  <rect x="64" y="23" width="130" height="11" rx="2" fill="#3a5680"/><text x="0" y="31">shared</text>
+                  <rect x="64" y="42" width="92" height="11" rx="2" fill="#6f89ad"/><text x="0" y="50">nonprod</text>
+                  <rect x="64" y="61" width="58" height="11" rx="2" fill="#a9bcd6"/><text x="0" y="69">dr</text>
+                  <rect x="64" y="80" width="32" height="11" rx="2" fill="#d7d5cf"/><text x="0" y="88">sandbox</text></g></svg>
+              </div>
+            </div>
+            <p class="eyebrow">Cost by custom tag — click to open in Explorer</p>
+            <div class="sm">
+              <div class="cell"><div class="t">Environment</div><svg viewBox="0 0 60 34" width="100%" height="34"><rect x="2" y="6" width="12" height="28" fill="#142848"/><rect x="18" y="14" width="12" height="20" fill="#3a5680"/><rect x="34" y="20" width="12" height="14" fill="#6f89ad"/><rect x="50" y="26" width="8" height="8" fill="#a9bcd6"/></svg></div>
+              <div class="cell"><div class="t">Cost Center</div><svg viewBox="0 0 60 34" width="100%" height="34"><rect x="2" y="10" width="12" height="24" fill="#142848"/><rect x="18" y="4" width="12" height="30" fill="#3a5680"/><rect x="34" y="18" width="12" height="16" fill="#6f89ad"/><rect x="50" y="24" width="8" height="10" fill="#a9bcd6"/></svg></div>
+              <div class="cell"><div class="t">Component Type</div><svg viewBox="0 0 60 34" width="100%" height="34"><rect x="2" y="8" width="12" height="26" fill="#142848"/><rect x="18" y="16" width="12" height="18" fill="#3a5680"/><rect x="34" y="12" width="12" height="22" fill="#6f89ad"/><rect x="50" y="22" width="8" height="12" fill="#a9bcd6"/></svg></div>
+              <div class="cell"><div class="t">Resource Type</div><svg viewBox="0 0 60 34" width="100%" height="34"><rect x="2" y="4" width="12" height="30" fill="#142848"/><rect x="18" y="12" width="12" height="22" fill="#3a5680"/><rect x="34" y="20" width="12" height="14" fill="#6f89ad"/><rect x="50" y="26" width="8" height="8" fill="#a9bcd6"/></svg></div>
+              <div class="cell"><div class="t">Resource Name</div><svg viewBox="0 0 60 34" width="100%" height="34"><rect x="2" y="6" width="12" height="28" fill="#142848"/><rect x="18" y="10" width="12" height="24" fill="#3a5680"/><rect x="34" y="16" width="12" height="18" fill="#6f89ad"/><rect x="50" y="20" width="8" height="14" fill="#a9bcd6"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 2b cost explorer ===== -->
+    <div class="dv-opt" id="2b">
+      <div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a><span><b>Cost Explorer.</b> Left filter rail (date + grain + all 7 dimensions), breadcrumb + group-by drilldown table, and a node-detail panel with line-items / overage. This is the analyst workhorse.</span></div>
+      <div class="wf" style="width:720px">
+        <div class="bar">
+          <div class="brand">CostScope<small>OCI FINOPS</small></div>
+          <div class="spacer"></div>
+          <div class="pill">Jun 12 – Jul 11 ▾</div><div class="pill">USD ▾</div>
+        </div>
+        <div class="split">
+          <div class="nav">
+            <h5 style="margin-top:2px">Analyze</h5>
+            <a><span class="ic"></span>Executive Summary</a>
+            <a class="on"><span class="ic"></span>Cost Explorer</a>
+            <a><span class="ic"></span>Resources</a>
+            <a><span class="ic"></span>Trends</a>
+          </div>
+          <div class="rail" style="border-left:1px solid #eee">
+            <div class="grp"><h5>Date &amp; grain</h5>
+              <div class="toggle" style="margin-bottom:6px"><span>Hr</span><span class="on">Day</span><span>Wk</span><span>Mo</span></div></div>
+            <div class="grp"><h5>Filters</h5>
+              <div class="opt"><span class="cb on"></span>Compartment</div>
+              <div class="opt"><span class="cb"></span>Service</div>
+              <div class="opt"><span class="cb"></span>Region</div>
+              <div class="opt"><span class="cb on"></span>Environment</div>
+              <div class="opt"><span class="cb"></span>Cost Center</div>
+              <div class="opt"><span class="cb"></span>Component Type</div>
+              <div class="opt"><span class="cb"></span>Resource Type</div>
+              <div class="opt"><span class="cb"></span>Resource Name</div></div>
+            <div class="mini">2 filters active · reset</div>
+          </div>
+          <div class="body" style="flex:1;min-width:0">
+            <div class="crumb" style="border:none;padding:0 0 10px">
+              <a href="#2b">All costs</a><span class="sep">›</span>
+              <a href="#2b">Service: Compute</a><span class="sep">›</span>
+              <span class="here">Compartment: prod</span>
+            </div>
+            <div class="row">
+              <div class="body" style="flex:1;padding:0;min-width:0">
+                <div class="panel solid" style="margin-bottom:10px">
+                  <div class="ph-cap"><p class="sec-t">Group by
+                    <span style="font-weight:400;color:#8a8f96">▾ Environment</span></p>
+                    <span class="mini">CSV ↧</span></div>
+                  <table class="tbl">
+                    <thead><tr><th>Environment</th><th>Res.</th><th>Cost</th><th></th></tr></thead>
+                    <tbody>
+                      <tr><td>production</td><td>412</td><td class="num">$168,200</td><td class="drill">›</td></tr>
+                      <tr><td>staging</td><td>96</td><td class="num">$42,900</td><td class="drill">›</td></tr>
+                      <tr><td>dev</td><td>140</td><td class="num">$28,400</td><td class="drill">›</td></tr>
+                      <tr><td>dr</td><td>38</td><td class="num">$19,100</td><td class="drill">›</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="panel"><p class="sec-t" style="margin-bottom:8px">Cost over time · current scope</p>
+                  <svg viewBox="0 0 360 60" width="100%" height="60" preserveAspectRatio="none"><polyline fill="none" stroke="#142848" stroke-width="2" points="0,44 45,38 90,46 135,30 180,36 225,22 270,28 360,16"/></svg></div>
+              </div>
+              <div style="width:158px;flex:none;border-left:1px solid #eee;padding-left:12px">
+                <h5 style="font:700 8px 'Poppins';letter-spacing:.12em;text-transform:uppercase;color:#8a8f96;margin:0 0 8px">Node · production</h5>
+                <div style="font:700 20px Poppins;color:#142848">$168.2K</div>
+                <span class="delta up" style="display:inline-flex;margin-bottom:12px">▲ 8% MoM</span>
+                <p class="eyebrow" style="margin:8px 0 4px">Line items</p>
+                <div class="mini" style="line-height:1.9">my_cost $151K<br>overage 88 items<br>1,204 line items</div>
+                <div class="note" style="margin-top:10px;font-size:10px">Drill ends at Resource → OCID detail (region, AD, first/last seen).</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: paste <b>CLAUDE-CODE-PROMPT.md</b> into Claude Code · "add an Anomalies view" · "show the OCID detail screen" · "tighten the Explorer rail"</p>
+</section>
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Four ways to structure the OCI cost dashboard</span></div>
+  <p class="dv-intro">Low-fi wireframes over your <b>CostScope</b> API — same data (summary · timeseries · breakdown · resources · lineitems, the 5 ATD custom tags, service &amp; compartment). Each explores a different <b>structural philosophy</b>, not a different skin. React with the option ids and I'll take the winner to a polished ATD-branded build in Angular.</p>
+  <div class="dv-opts">
+
+    <!-- ========== 1a Executive scorecard ========== -->
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a><span><b>Executive scorecard → drilldown drawer.</b> Top-down narrative for leadership. Big KPI band, one trend, category breakdowns, tag small-multiples. Click anything to drill.</span></div>
+      <div class="wf">
+        <div class="bar">
+          <div class="brand">CostScope<small>OCI FINOPS</small></div>
+          <div class="spacer"></div>
+          <div class="pill">Last 30 days ▾</div>
+          <div class="fresh">Data through Jul 11, 08:00</div>
+        </div>
+        <div class="chips">
+          <span class="chip">Compartment</span><span class="chip">Service</span>
+          <span class="chip tag">Environment</span><span class="chip tag">Cost Center</span>
+          <span class="chip tag">Component Type</span><span class="chip tag">Resource Type</span><span class="chip tag">Resource Name</span>
+        </div>
+        <div class="body">
+          <div class="kpis" style="margin-bottom:14px">
+            <div class="kpi"><div class="k-l">Daily Cost</div><div class="k-n">$12,480</div><span class="delta up">▲ 6.2% vs yest.</span></div>
+            <div class="kpi"><div class="k-l">Month to date</div><div class="k-n">$284,910</div><div class="k-sub">72% of $394K forecast</div></div>
+            <div class="kpi hero"><div class="k-l">Year to date</div><div class="k-n">$2.71M</div><span class="delta up">▲ 11% vs LY</span></div>
+          </div>
+          <div class="panel solid" style="margin-bottom:14px">
+            <div class="ph-cap"><p class="sec-t">Cost over time</p>
+              <div class="toggle"><span>Hr</span><span class="on">Day</span><span>Wk</span><span>Mo</span></div></div>
+            <svg viewBox="0 0 600 120" width="100%" height="120" preserveAspectRatio="none">
+              <line x1="0" y1="100" x2="600" y2="100" stroke="#e5e3dd"/><line x1="0" y1="60" x2="600" y2="60" stroke="#f1efe9"/><line x1="0" y1="20" x2="600" y2="20" stroke="#f1efe9"/>
+              <polyline fill="none" stroke="#142848" stroke-width="2.5" points="0,80 60,70 120,84 180,58 240,66 300,44 360,52 420,34 480,46 540,26 600,38"/>
+              <polygon fill="#14284811" points="0,80 60,70 120,84 180,58 240,66 300,44 360,52 420,34 480,46 540,26 600,38 600,100 0,100"/>
+            </svg>
+          </div>
+          <div class="row" style="margin-bottom:14px">
+            <div class="panel" style="flex:1">
+              <p class="sec-t" style="margin-bottom:9px">Cost by Service</p>
+              <div class="row" style="align-items:center;gap:14px">
+                <svg viewBox="0 0 80 80" width="80" height="80"><circle cx="40" cy="40" r="30" fill="none" stroke="#142848" stroke-width="14" stroke-dasharray="80 108"/><circle cx="40" cy="40" r="30" fill="none" stroke="#0076BE" stroke-width="14" stroke-dasharray="45 143" stroke-dashoffset="-80"/><circle cx="40" cy="40" r="30" fill="none" stroke="#8fb7d9" stroke-width="14" stroke-dasharray="35 153" stroke-dashoffset="-125"/><circle cx="40" cy="40" r="30" fill="none" stroke="#d7d5cf" stroke-width="14" stroke-dasharray="28 160" stroke-dashoffset="-160"/></svg>
+                <div class="legend" style="flex-direction:column;gap:5px;margin:0">
+                  <span><i style="background:#142848"></i>Compute</span><span><i style="background:#0076BE"></i>Block Storage</span><span><i style="background:#8fb7d9"></i>Database</span><span><i style="background:#d7d5cf"></i>Network + 12</span>
+                </div>
+              </div>
+            </div>
+            <div class="panel" style="flex:1">
+              <p class="sec-t" style="margin-bottom:9px">Cost by Compartment</p>
+              <svg viewBox="0 0 260 96" width="100%" height="96">
+                <g font-family="Poppins" font-size="8" fill="#8a8f96">
+                <rect x="60" y="4" width="180" height="12" rx="2" fill="#142848"/><text x="0" y="13">prod</text>
+                <rect x="60" y="24" width="120" height="12" rx="2" fill="#3a5680"/><text x="0" y="33">shared</text>
+                <rect x="60" y="44" width="86" height="12" rx="2" fill="#6f89ad"/><text x="0" y="53">nonprod</text>
+                <rect x="60" y="64" width="54" height="12" rx="2" fill="#a9bcd6"/><text x="0" y="73">dr</text>
+                <rect x="60" y="84" width="30" height="12" rx="2" fill="#d7d5cf"/><text x="0" y="93">sandbox</text>
+                </g>
+              </svg>
+            </div>
+          </div>
+          <p class="eyebrow">Cost by custom tag — click to drill</p>
+          <div class="sm">
+            <div class="cell"><div class="t">Environment</div><svg viewBox="0 0 60 34" width="100%" height="34"><rect x="2" y="6" width="12" height="28" fill="#142848"/><rect x="18" y="14" width="12" height="20" fill="#3a5680"/><rect x="34" y="20" width="12" height="14" fill="#6f89ad"/><rect x="50" y="26" width="8" height="8" fill="#a9bcd6"/></svg></div>
+            <div class="cell"><div class="t">Cost Center</div><svg viewBox="0 0 60 34" width="100%" height="34"><rect x="2" y="10" width="12" height="24" fill="#142848"/><rect x="18" y="4" width="12" height="30" fill="#3a5680"/><rect x="34" y="18" width="12" height="16" fill="#6f89ad"/><rect x="50" y="24" width="8" height="10" fill="#a9bcd6"/></svg></div>
+            <div class="cell"><div class="t">Component Type</div><svg viewBox="0 0 60 34" width="100%" height="34"><rect x="2" y="8" width="12" height="26" fill="#142848"/><rect x="18" y="16" width="12" height="18" fill="#3a5680"/><rect x="34" y="12" width="12" height="22" fill="#6f89ad"/><rect x="50" y="22" width="8" height="12" fill="#a9bcd6"/></svg></div>
+            <div class="cell"><div class="t">Resource Type</div><svg viewBox="0 0 60 34" width="100%" height="34"><rect x="2" y="4" width="12" height="30" fill="#142848"/><rect x="18" y="12" width="12" height="22" fill="#3a5680"/><rect x="34" y="20" width="12" height="14" fill="#6f89ad"/><rect x="50" y="26" width="8" height="8" fill="#a9bcd6"/></svg></div>
+            <div class="cell"><div class="t">Resource Name</div><svg viewBox="0 0 60 34" width="100%" height="34"><rect x="2" y="6" width="12" height="28" fill="#142848"/><rect x="18" y="10" width="12" height="24" fill="#3a5680"/><rect x="34" y="16" width="12" height="18" fill="#6f89ad"/><rect x="50" y="20" width="8" height="14" fill="#a9bcd6"/></svg></div>
+          </div>
+          <div class="note"><b>Drill:</b> clicking a bar / slice slides in a right-side drawer → filtered trend + resource table + line-items. Executive stays on one scrollable page.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 1b Operational cockpit ========== -->
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a><span><b>Operational cockpit — everything on one dense screen.</b> Persistent left filter rail, compact KPI strip, multi-panel grid. For FinOps power users who live here daily.</span></div>
+      <div class="wf">
+        <div class="bar">
+          <div class="brand">CostScope<small>OCI FINOPS</small></div>
+          <div class="spacer"></div>
+          <div class="pill">Jun 12 – Jul 11 ▾</div><div class="pill">USD ▾</div>
+        </div>
+        <div class="split">
+          <div class="rail">
+            <div class="grp"><h5>Date &amp; grain</h5>
+              <div class="toggle" style="margin-bottom:6px"><span>Hr</span><span class="on">Day</span><span>Wk</span><span>Mo</span></div>
+              <div class="mini">Jun 12 – Jul 11</div></div>
+            <div class="grp"><h5>Dimensions</h5>
+              <div class="opt"><span class="cb on"></span>Compartment</div>
+              <div class="opt"><span class="cb"></span>Service</div>
+              <div class="opt"><span class="cb on"></span>Region</div></div>
+            <div class="grp"><h5>Custom tags</h5>
+              <div class="opt"><span class="cb"></span>Environment</div>
+              <div class="opt"><span class="cb"></span>Cost Center</div>
+              <div class="opt"><span class="cb"></span>Component Type</div>
+              <div class="opt"><span class="cb"></span>Resource Type</div>
+              <div class="opt"><span class="cb"></span>Resource Name</div></div>
+            <div class="mini">7 filters active</div>
+          </div>
+          <div class="body" style="flex:1">
+            <div class="kpis" style="margin-bottom:12px;gap:8px">
+              <div class="kpi" style="padding:9px"><div class="k-l">Daily</div><div class="k-n" style="font-size:16px">$12.4K</div></div>
+              <div class="kpi" style="padding:9px"><div class="k-l">MTD</div><div class="k-n" style="font-size:16px">$285K</div></div>
+              <div class="kpi" style="padding:9px"><div class="k-l">YTD</div><div class="k-n" style="font-size:16px">$2.71M</div></div>
+              <div class="kpi hero" style="padding:9px"><div class="k-l">Overage</div><div class="k-n" style="font-size:16px">142</div></div>
+            </div>
+            <div class="row" style="margin-bottom:12px">
+              <div class="panel solid" style="flex:1.3">
+                <p class="sec-t" style="margin-bottom:8px">Treemap · Service → Compartment</p>
+                <svg viewBox="0 0 260 120" width="100%" height="120" font-family="Poppins" font-size="8" fill="#fff">
+                  <rect x="0" y="0" width="150" height="70" fill="#142848"/><text x="6" y="16">Compute</text>
+                  <rect x="152" y="0" width="108" height="40" fill="#0076BE"/><text x="158" y="15">Storage</text>
+                  <rect x="152" y="42" width="108" height="28" fill="#3a5680"/><text x="158" y="57">Database</text>
+                  <rect x="0" y="72" width="90" height="48" fill="#6f89ad"/><text x="6" y="88">Network</text>
+                  <rect x="92" y="72" width="80" height="48" fill="#8fb7d9"/><text x="98" y="88" fill="#142848">LB</text>
+                  <rect x="174" y="72" width="86" height="48" fill="#c3d3e6"/><text x="180" y="88" fill="#142848">Other</text>
+                </svg>
+              </div>
+              <div class="panel solid" style="flex:1">
+                <p class="sec-t" style="margin-bottom:8px">Cost trend</p>
+                <svg viewBox="0 0 220 108" width="100%" height="108" preserveAspectRatio="none">
+                  <polygon fill="#0076be22" points="0,70 40,60 80,74 120,50 160,58 200,38 220,46 220,100 0,100"/>
+                  <polyline fill="none" stroke="#0076BE" stroke-width="2" points="0,70 40,60 80,74 120,50 160,58 200,38 220,46"/>
+                </svg>
+                <div class="gauge-wrap" style="margin-top:8px">
+                  <svg viewBox="0 0 54 30" width="54" height="30"><path d="M6 28 A21 21 0 0 1 48 28" fill="none" stroke="#eee" stroke-width="6"/><path d="M6 28 A21 21 0 0 1 44 12" fill="none" stroke="#FF4A4E" stroke-width="6"/></svg>
+                  <div><div class="k-l">Overage cost</div><div style="font:700 13px Poppins;color:#c62d31">$18.2K</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel solid">
+              <div class="ph-cap"><p class="sec-t">Top resources</p><span class="mini">sort: cost ▾</span></div>
+              <table class="tbl">
+                <thead><tr><th>Resource</th><th>Service</th><th>Compartment</th><th>Cost</th></tr></thead>
+                <tbody>
+                  <tr><td>vm-prod-db-01</td><td>Compute</td><td>prod</td><td class="num">$4,210</td></tr>
+                  <tr><td>bv-prod-data-07</td><td>Block Storage</td><td>prod</td><td class="num">$3,180</td></tr>
+                  <tr><td>adb-analytics</td><td>Database</td><td>shared</td><td class="num">$2,940</td></tr>
+                  <tr><td>untagged · load balancer</td><td>Network</td><td>prod</td><td class="num">$1,760</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 1c Guided drilldown explorer ========== -->
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a><span><b>Guided drilldown explorer — breadcrumb + group-by.</b> Answer one question at a time: pick a dimension, click a row to drill deeper. Right rail shows the selected node's detail &amp; line-items.</span></div>
+      <div class="wf">
+        <div class="bar">
+          <div class="brand">CostScope<small>OCI FINOPS</small></div>
+          <div class="spacer"></div>
+          <div class="pill">Last 30 days ▾</div>
+        </div>
+        <div class="crumb">
+          <a href="#1c">All costs</a><span class="sep">›</span>
+          <a href="#1c">Service: Compute</a><span class="sep">›</span>
+          <a href="#1c">Compartment: prod</a><span class="sep">›</span>
+          <span class="here">Environment: production</span>
+        </div>
+        <div class="split">
+          <div class="rail">
+            <h5>Group by</h5>
+            <div class="opt"><span class="rd"></span>Service</div>
+            <div class="opt"><span class="rd"></span>Compartment</div>
+            <div class="opt"><span class="rd on"></span>Environment</div>
+            <div class="opt"><span class="rd"></span>Cost Center</div>
+            <div class="opt"><span class="rd"></span>Component Type</div>
+            <div class="opt"><span class="rd"></span>Resource Type</div>
+            <div class="opt"><span class="rd"></span>Resource Name</div>
+            <div style="height:1px;background:#eee;margin:12px 0"></div>
+            <div class="mini">Each click adds a crumb &amp; filters everything below.</div>
+          </div>
+          <div class="body" style="flex:1">
+            <div class="panel solid" style="margin-bottom:12px">
+              <p class="sec-t" style="margin-bottom:9px">Cost by Environment · drill in ↓</p>
+              <table class="tbl">
+                <thead><tr><th>Value</th><th>Resources</th><th>Cost</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td>production</td><td>412</td><td class="num">$168,200</td><td class="drill">drill ›</td></tr>
+                  <tr><td>staging</td><td>96</td><td class="num">$42,900</td><td class="drill">drill ›</td></tr>
+                  <tr><td>dev</td><td>140</td><td class="num">$28,400</td><td class="drill">drill ›</td></tr>
+                  <tr><td>dr</td><td>38</td><td class="num">$19,100</td><td class="drill">drill ›</td></tr>
+                  <tr><td>untagged</td><td>21</td><td class="num">$6,300</td><td class="drill">drill ›</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="panel">
+              <p class="sec-t" style="margin-bottom:8px">Selected: production — cost over time</p>
+              <svg viewBox="0 0 380 70" width="100%" height="70" preserveAspectRatio="none">
+                <polyline fill="none" stroke="#142848" stroke-width="2" points="0,50 50,44 100,52 150,34 200,40 250,26 300,32 380,20"/>
+              </svg>
+            </div>
+          </div>
+          <div class="rail" style="width:150px;border-left:1px solid #eee;border-right:none;background:#fff">
+            <h5>Node detail</h5>
+            <div class="k-l" style="margin-bottom:2px">production</div>
+            <div style="font:700 18px Poppins;color:#142848;margin-bottom:2px">$168.2K</div>
+            <span class="delta up" style="margin-bottom:12px;display:inline-flex">▲ 8%</span>
+            <div class="grp" style="margin-top:12px"><h5>Line items</h5>
+              <div class="mini" style="line-height:1.9">my_cost $151K<br>overage 88 items<br>1,204 line items</div></div>
+            <div class="anno">→ opens resources</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== 1d Tabbed analyst workbench ========== -->
+    <div class="dv-opt" id="1d">
+      <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a><span><b>Tabbed analyst workbench.</b> Separate audiences into tabs that map 1:1 to the API — Overview, By Tag (pivot), Trends, Resources. Executives live in Overview; analysts pivot &amp; export.</span></div>
+      <div class="wf">
+        <div class="bar">
+          <div class="brand">CostScope<small>OCI FINOPS</small></div>
+          <div class="spacer"></div>
+          <div class="pill">Last 30 days ▾</div>
+          <div class="fresh">Loaded 08:14</div>
+        </div>
+        <div class="tabs">
+          <span class="tab on">Overview</span><span class="tab">By Tag</span><span class="tab">Trends</span><span class="tab">Resources</span>
+        </div>
+        <div class="body">
+          <div class="kpis" style="margin-bottom:14px">
+            <div class="kpi"><div class="k-l">Daily Cost</div><div class="k-n">$12,480</div><span class="delta up">▲ 6.2%</span></div>
+            <div class="kpi"><div class="k-l">MTD</div><div class="k-n">$284,910</div><div class="k-sub">vs $261K last mo</div></div>
+            <div class="kpi hero"><div class="k-l">YTD</div><div class="k-n">$2.71M</div><span class="delta up">▲ 11%</span></div>
+          </div>
+          <div class="panel solid" style="margin-bottom:12px">
+            <p class="sec-t" style="margin-bottom:8px">Daily cost — this month</p>
+            <svg viewBox="0 0 600 90" width="100%" height="90" preserveAspectRatio="none">
+              <polygon fill="#14284811" points="0,64 60,56 120,68 180,46 240,54 300,36 360,44 420,28 480,38 540,22 600,32 600,80 0,80"/>
+              <polyline fill="none" stroke="#142848" stroke-width="2.5" points="0,64 60,56 120,68 180,46 240,54 300,36 360,44 420,28 480,38 540,22 600,32"/>
+            </svg>
+          </div>
+          <p class="draw-t" style="margin:0 0 8px">↓ &nbsp;the "By Tag" tab &mdash; pivot matrix</p>
+          <div class="panel" style="opacity:.92">
+            <table class="tbl">
+              <thead><tr><th>Cost Center ↓ / Environment →</th><th>prod</th><th>staging</th><th>dev</th><th>Total</th></tr></thead>
+              <tbody>
+                <tr><td>CC-1001 Platform</td><td class="num">$88K</td><td class="num">$21K</td><td class="num">$12K</td><td class="num">$121K</td></tr>
+                <tr><td>CC-2200 Data</td><td class="num">$54K</td><td class="num">$14K</td><td class="num">$9K</td><td class="num">$77K</td></tr>
+                <tr><td>CC-3050 Web</td><td class="num">$26K</td><td class="num">$8K</td><td class="num">$6K</td><td class="num">$40K</td></tr>
+              </tbody>
+            </table>
+            <div class="note" style="margin-top:10px">Pick any 2 of the 7 dimensions for rows × columns; cells drill to Resources. Export CSV per view.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "build out <a class="dv-oid" href="#1a">1a</a> polished in ATD brand" · "combine <a class="dv-oid" href="#1b">1b</a> cockpit grid with <a class="dv-oid" href="#1c">1c</a> breadcrumb drilldown" · "show the drilldown drawer for <a class="dv-oid" href="#1a">1a</a>" · "more layout directions"</p>
+</section>
+</x-dc>
+</body>
+</html>
