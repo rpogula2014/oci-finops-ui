@@ -47,7 +47,7 @@ export function buildStatCards(input: {
   end: string;
   currency: string;
 }): StatCard[] {
-  const { summaryRows, monthly, costCenters, environments, topResources, topLabel, freshness, start, end, currency } =
+  const { summaryRows, monthly, environments, topResources, topLabel, freshness, start, end, currency } =
     input;
   const forCurrency = <T extends { currency: string }>(rows: T[]) => rows.filter((r) => r.currency === currency);
 
@@ -61,6 +61,7 @@ export function buildStatCards(input: {
     !!last &&
     monthLabelOf(last.bucket) === dataThrough.toISOString().slice(0, 7) &&
     dataThrough.getUTCDate() < daysInMonth(last.bucket);
+  const lastIsCurrentMonth = !!last && monthLabelOf(last.bucket) === new Date().toISOString().slice(0, 7);
 
   const complete = lastIsPartial ? months.slice(0, -1) : months;
   const prev = complete[complete.length - 1];
@@ -88,10 +89,6 @@ export function buildStatCards(input: {
     };
   }
 
-  const ccRows = forCurrency(costCenters);
-  const untagged = sumCost(ccRows.filter((r) => r.dimension_value === ''));
-  const ccTotal = sumCost(ccRows);
-
   const envRows = forCurrency(environments).filter((r) => r.dimension_value !== '');
   const tagged = sumCost(envRows);
   const prod = sumCost(envRows.filter((r) => r.dimension_value === 'prod'));
@@ -105,9 +102,9 @@ export function buildStatCards(input: {
   ];
   if (last) {
     cards.push({
-      label: 'Latest month',
+      label: lastIsCurrentMonth ? 'Current month' : 'Latest month',
       value: money(parseCost(last.cost), currency),
-      subs: [`${monthLabelOf(last.bucket)}${lastIsPartial ? ' · may be partial' : ''}`],
+      subs: [monthLabelOf(last.bucket)],
     });
   }
   if (mom !== null && prev && prev2) {
@@ -118,11 +115,6 @@ export function buildStatCards(input: {
     });
   }
   if (forecastCard) cards.push(forecastCard);
-  cards.push({
-    label: 'Untagged (no cost center)',
-    value: money(untagged, currency),
-    subs: [ccTotal > 0 ? `${((untagged / ccTotal) * 100).toFixed(1)}% of spend` : '—'],
-  });
   if (tagged > 0) {
     cards.push({
       label: 'Non-prod share (of tagged)',
