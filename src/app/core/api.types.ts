@@ -138,6 +138,46 @@ export type Dimension =
   | 'resource_type'
   | 'resource_name';
 
+/** Dimensions supported by the server-grouped Resources table. */
+export type GroupedResourceDimension = Dimension | 'period';
+
+export const GROUPED_DIMENSION_LABELS: Record<GroupedResourceDimension, string> = {
+  service: 'Service',
+  compartment: 'Compartment',
+  environment: 'Environment',
+  cost_center: 'Cost Center',
+  component_type: 'Component Type',
+  resource_type: 'Resource Type',
+  resource_name: 'Resource Name',
+  period: 'Period',
+};
+
+export interface GroupedResourceGroupRow {
+  kind: 'group' | 'other';
+  depth: number;
+  group_value: string;
+  currency: string;
+  subtotal_cost: CostString;
+  row_count: number;
+}
+
+export interface GroupedResourceLeafRow {
+  kind: 'leaf';
+  period: string;
+  environment: string;
+  cost_center: string;
+  component_type: string;
+  compartment: string;
+  service: string;
+  resource_type: string;
+  resource_name: string;
+  ocid: string;
+  currency: string;
+  cost: CostString;
+}
+
+export type GroupedResourceRow = GroupedResourceGroupRow | GroupedResourceLeafRow;
+
 /** Shared query params. Dimension filter keys match API param names. */
 export interface CostQuery {
   start?: string;

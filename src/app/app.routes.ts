@@ -5,28 +5,28 @@ export const routes: Routes = [
   {
     path: 'summary',
     loadComponent: () => import('./views/summary/summary.component').then((m) => m.SummaryComponent),
-    title: 'CostScope · Executive Summary',
+    title: 'ATD FinOps · Cost Summary',
   },
   {
     path: 'explorer',
     loadComponent: () => import('./views/explorer/explorer.component').then((m) => m.ExplorerComponent),
-    title: 'CostScope · Cost Explorer',
+    title: 'ATD FinOps · Cost Explorer',
   },
   {
     path: 'resources',
     loadComponent: () => import('./views/resources/resources.component').then((m) => m.ResourcesComponent),
-    title: 'CostScope · Resources',
+    title: 'ATD FinOps · Resources',
   },
   {
     path: 'resources/:ocid',
     loadComponent: () =>
       import('./views/resources/resource-detail.component').then((m) => m.ResourceDetailComponent),
-    title: 'CostScope · Resource Detail',
+    title: 'ATD FinOps · Resource Detail',
   },
   {
     path: 'trends',
     loadComponent: () => import('./views/trends/trends.component').then((m) => m.TrendsComponent),
-    title: 'CostScope · Trends',
+    title: 'ATD FinOps · Trends',
   },
   { path: '**', redirectTo: 'summary' },
 ];

@@ -16,61 +16,60 @@ import { PanelStateComponent, PanelStatus } from '../../shared/panel-state.compo
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [MoneyPipe, RouterLink, NgxEchartsDirective, PanelStateComponent],
   template: `
-    <a routerLink="/resources" queryParamsHandling="preserve">‹ All resources</a>
+    <a class="back" routerLink="/resources" queryParamsHandling="preserve">‹ All resources</a>
     <app-panel-state [status]="panel().status" [error]="panel().error">
       @if (panel().data; as r) {
         <span class="eyebrow">{{ r.service }} · {{ r.resource_type || 'Resource' }}</span>
         <h1>{{ labelFor(r.resource_name) }}</h1>
-        <div class="detail-grid">
-          <div class="card fields">
-            @for (field of fieldsOf(r); track field.label) {
-              <div class="field-row">
-                <span class="eyebrow">{{ field.label }}</span>
-                <span class="value" [class.mono]="field.mono">{{ field.value }}</span>
-              </div>
+        <div class="card trend">
+          <div class="panel-head">
+            <h2>Cost trend</h2>
+            <div class="grain-toggle" role="group" aria-label="Granularity">
+              @for (g of grains; track g) {
+                <button [class.on]="grain() === g" (click)="grain.set(g)">{{ g }}</button>
+              }
+            </div>
+          </div>
+          <div class="head-metrics">
+            <span class="big">{{ r.cost | money: r.currency }}</span>
+            @if (overageTotal() > 0) {
+              <span class="overage">{{ overageTotal() }} overage items</span>
             }
           </div>
-          <div class="card">
-            <div class="panel-head">
-              <h2>Cost trend</h2>
-              <div class="grain-toggle" role="group" aria-label="Granularity">
-                @for (g of grains; track g) {
-                  <button [class.on]="grain() === g" (click)="grain.set(g)">{{ g }}</button>
-                }
-              </div>
+          <app-panel-state [status]="trendPanel().status" [error]="trendPanel().error">
+            @if (trendPanel().status === 'ready') {
+              <div echarts [options]="trendChart()" class="chart" role="img" aria-label="Line item cost trend for this resource"></div>
+            }
+          </app-panel-state>
+        </div>
+        <div class="card fields">
+          @for (field of fieldsOf(r); track field.label) {
+            <div class="field-row">
+              <span class="eyebrow">{{ field.label }}</span>
+              <span class="value" [class.mono]="field.mono">{{ field.value }}</span>
             </div>
-            <div class="head-metrics">
-              <span class="big">{{ r.cost | money: r.currency }}</span>
-              @if (overageTotal() > 0) {
-                <span class="overage">{{ overageTotal() }} overage items</span>
-              }
-            </div>
-            <app-panel-state [status]="trendPanel().status" [error]="trendPanel().error">
-              @if (trendPanel().status === 'ready') {
-                <div echarts [options]="trendChart()" class="chart" role="img" aria-label="Line item cost trend for this resource"></div>
-              }
-            </app-panel-state>
-          </div>
+          }
         </div>
       }
     </app-panel-state>
   `,
   styles: `
-    .detail-grid {
-      display: grid;
-      grid-template-columns: 340px 1fr;
-      gap: 16px;
+    .back {
+      margin-right: 10px;
+    }
+    .trend {
       margin-top: 16px;
-      align-items: start;
     }
     .fields {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px 24px;
+      margin-top: 16px;
     }
     .field-row {
       display: flex;
       flex-direction: column;
+      min-width: 0;
     }
     .field-row .value {
       font-size: 13px;
@@ -106,13 +105,8 @@ import { PanelStateComponent, PanelStatus } from '../../shared/panel-state.compo
       font-size: 13px;
     }
     .chart {
-      height: 260px;
+      height: 380px;
       width: 100%;
-    }
-    @media (max-width: 1000px) {
-      .detail-grid {
-        grid-template-columns: 1fr;
-      }
     }
   `,
 })
@@ -213,8 +207,8 @@ export class ResourceDetailComponent {
     return {
       ...BASE_CHART,
       tooltip: { trigger: 'axis' },
-      grid: { left: 60, right: 16, top: 24, bottom: 32 },
-      legend: { data: ['Cost', 'My cost'] },
+      grid: { left: 60, right: 24, top: 48, bottom: 36, containLabel: false },
+      legend: { data: ['Cost', 'My cost'], top: 8, right: 8 },
       xAxis: { type: 'category', data: rows.map((r) => r.bucket.slice(0, 10)) },
       yAxis: { type: 'value' },
       series: [

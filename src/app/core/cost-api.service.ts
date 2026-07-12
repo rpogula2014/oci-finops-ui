@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, InjectionToken, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
-import { ApiError, BreakdownRow, CostQuery, Dimension, Envelope, EnvelopeMeta, ExecSummary, FiltersRow, Freshness, Granularity, LineItemsRow, ResourceDetail, ResourceRow, SummaryRow, TimeseriesRow } from './api.types';
+import { Observable, map, throwError } from 'rxjs';
+import { ApiError, BreakdownRow, CostQuery, Dimension, Envelope, EnvelopeMeta, ExecSummary, FiltersRow, Freshness, Granularity, GroupedResourceDimension, GroupedResourceRow, LineItemsRow, ResourceDetail, ResourceRow, SummaryRow, TimeseriesRow } from './api.types';
 
 /** Overridable for non-proxied deployments; default relies on the dev-server proxy. */
 export const API_BASE_URL = new InjectionToken<string>('API_BASE_URL', {
@@ -74,6 +74,29 @@ export class CostApiService {
 
   resources(query: CostQuery, page = 1, limit = 50, sort: 'cost' | 'resource_name' | 'service' | 'compartment' = 'cost', direction: 'asc' | 'desc' = 'desc'): Observable<Unwrapped<ResourceRow[]>> {
     return this.get('/v1/costs/resources', toParams(query, { page, limit, sort, direction }));
+  }
+
+  groupedResources(
+    query: CostQuery,
+    group1: GroupedResourceDimension,
+    group2?: GroupedResourceDimension,
+    opts: { group1Value?: string; group2Value?: string; q?: string; hideZero?: boolean } = {},
+  ): Observable<Unwrapped<GroupedResourceRow[]>> {
+    if (group1 === group2) {
+      return throwError(() => new ApiError('VALIDATION_ERROR', 'Grouping dimensions must differ'));
+    }
+    return this.get(
+      '/v1/costs/resources/grouped',
+      toParams(query, {
+        group1,
+        group2,
+        group1_value: opts.group1Value,
+        group2_value: opts.group2Value,
+        q: opts.q?.trim() || undefined,
+        hide_zero: opts.hideZero ? 'true' : undefined,
+        grain: 'month',
+      }),
+    );
   }
 
   resourceDetail(ocid: string, query: CostQuery = {}): Observable<Unwrapped<ResourceDetail[]>> {

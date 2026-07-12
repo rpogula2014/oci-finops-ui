@@ -13,7 +13,7 @@ describe('ResourcesComponent', () => {
     }> = [];
     TestBed.configureTestingModule({
       providers: [
-        { provide: CostApiService, useValue: { resources: () => EMPTY } },
+        { provide: CostApiService, useValue: { resources: () => EMPTY, groupedResources: () => EMPTY } },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParams: {} } } },
         {
           provide: Router,
@@ -57,7 +57,7 @@ describe('ResourcesComponent', () => {
     }> = [];
     TestBed.configureTestingModule({
       providers: [
-        { provide: CostApiService, useValue: { resources: () => EMPTY } },
+        { provide: CostApiService, useValue: { resources: () => EMPTY, groupedResources: () => EMPTY } },
         { provide: ActivatedRoute, useValue: { snapshot: { queryParams: {} } } },
         {
           provide: Router,
@@ -82,5 +82,26 @@ describe('ResourcesComponent', () => {
         extras: { queryParams: expect.objectContaining({ compartment: 'prod' }) },
       }),
     );
+  });
+
+  it('uses the grouped table on a direct landing and keeps the flat table for resource scope', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: CostApiService, useValue: { resources: () => EMPTY, groupedResources: () => EMPTY } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParams: {} } } },
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true) } },
+      ],
+    });
+    const filters = TestBed.inject(FiltersStore);
+    const fixture = TestBed.createComponent(ResourcesComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('app-grouped-resource-table')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('table[aria-label="Resources with cost"]')).toBeNull();
+
+    filters.setFilter('resource_name', 'payments-api');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-grouped-resource-table')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.card')).not.toBeNull();
   });
 });

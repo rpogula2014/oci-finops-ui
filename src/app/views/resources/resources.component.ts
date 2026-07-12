@@ -8,6 +8,7 @@ import { DIMENSION_FILTER_KEYS, DIMENSION_LABELS, DimensionFilterKey, FiltersSto
 import { labelForFilterValue } from '../../core/currency';
 import { MoneyPipe } from '../../shared/money.pipe';
 import { PanelStateComponent, PanelStatus } from '../../shared/panel-state.component';
+import { GroupedResourceTableComponent } from './grouped-resource-table.component';
 
 type SortKey = 'cost' | 'resource_name' | 'service' | 'compartment';
 
@@ -16,7 +17,7 @@ const PAGE_SIZE = 50;
 @Component({
   selector: 'app-resources',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MoneyPipe, PanelStateComponent],
+  imports: [GroupedResourceTableComponent, MoneyPipe, PanelStateComponent],
   template: `
     <span class="eyebrow">Resources</span>
     <h1>Resource costs</h1>
@@ -29,9 +30,10 @@ const PAGE_SIZE = 50;
       </div>
     }
 
-    <div class="card">
-      <app-panel-state [status]="panel().status" [error]="panel().error">
-        <table class="data" aria-label="Resources with cost">
+    @if (hasResourceScope()) {
+      <div class="card">
+        <app-panel-state [status]="panel().status" [error]="panel().error">
+          <table class="data" aria-label="Resources with cost">
           <thead>
             <tr>
               @for (col of columns; track col.key) {
@@ -63,16 +65,24 @@ const PAGE_SIZE = 50;
               </tr>
             }
           </tbody>
-        </table>
-        <div class="pager">
-          <button (click)="page.set(page() - 1)" [disabled]="page() <= 1">‹ Prev</button>
-          <span>Page {{ page() }} of {{ pageCount() }} · {{ total() }} resources</span>
-          <button (click)="page.set(page() + 1)" [disabled]="page() >= pageCount()">Next ›</button>
-        </div>
-      </app-panel-state>
-    </div>
+          </table>
+          <div class="pager">
+            <button (click)="page.set(page() - 1)" [disabled]="page() <= 1">‹ Prev</button>
+            <span>Page {{ page() }} of {{ pageCount() }} · {{ total() }} resources</span>
+            <button (click)="page.set(page() + 1)" [disabled]="page() >= pageCount()">Next ›</button>
+          </div>
+        </app-panel-state>
+      </div>
+    } @else {
+      <app-grouped-resource-table />
+    }
   `,
   styles: `
+    :host {
+      display: block;
+      width: calc(100vw - var(--sidebar-width) - 48px);
+      max-width: none;
+    }
     th button.sort {
       border: none;
       background: none;
@@ -104,6 +114,9 @@ const PAGE_SIZE = 50;
       display: inline-flex;
       align-items: center;
       gap: 4px;
+    }
+    @media (max-width: 900px) {
+      :host { width: 100%; }
     }
   `,
 })
@@ -138,6 +151,7 @@ export class ResourcesComponent {
   });
 
   protected readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / PAGE_SIZE)));
+  protected readonly hasResourceScope = computed(() => this.filters.filter('resource_name')() !== null || this.filters.filter('ocid')() !== null);
   protected readonly chips = computed(() =>
     DIMENSION_FILTER_KEYS.flatMap((key) => {
       const value = this.filters.filter(key)();
@@ -159,6 +173,7 @@ export class ResourcesComponent {
 
     const key = computed(() => ({
       query: this.filters.query(),
+      hasResourceScope: this.hasResourceScope(),
       page: this.page(),
       sort: this.sort(),
       direction: this.direction(),
@@ -166,7 +181,8 @@ export class ResourcesComponent {
     toObservable(key)
       .pipe(
         debounceTime(200),
-        switchMap(({ query, page, sort, direction }) => {
+        switchMap(({ query, hasResourceScope, page, sort, direction }) => {
+          if (!hasResourceScope) return EMPTY;
           this.panel.set({ status: 'loading', data: null, error: null });
           return this.api.resources(query, page, PAGE_SIZE, sort, direction).pipe(
             map(({ rows }) => {

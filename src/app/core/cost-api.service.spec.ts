@@ -83,4 +83,33 @@ describe('CostApiService', () => {
     expect(req.request.params.get('compartment')).toBe('prod');
     req.flush({ data: [], meta: {}, error: null });
   });
+
+  it('requests grouped resource children with parent scope, search, and fixed month grain', () => {
+    let rows: unknown;
+    service
+      .groupedResources(
+        { service: 'COMPUTE' },
+        'environment',
+        'cost_center',
+        { group1Value: '', group2Value: 'platform', q: '  payments  ' },
+      )
+      .subscribe((result) => (rows = result.rows));
+    const req = http.expectOne((r) => r.url === '/v1/costs/resources/grouped');
+    expect(req.request.params.get('group1')).toBe('environment');
+    expect(req.request.params.get('group2')).toBe('cost_center');
+    expect(req.request.params.get('group1_value')).toBe('__untagged__');
+    expect(req.request.params.get('group2_value')).toBe('platform');
+    expect(req.request.params.get('q')).toBe('payments');
+    expect(req.request.params.get('grain')).toBe('month');
+    expect(req.request.params.get('service')).toBe('COMPUTE');
+    req.flush({ data: [{ kind: 'group', depth: 1, group_value: 'platform', currency: 'USD', subtotal_cost: '12.34', row_count: 2 }], meta: {}, error: null });
+    expect(rows).toEqual([{ kind: 'group', depth: 1, group_value: 'platform', currency: 'USD', subtotal_cost: '12.34', row_count: 2 }]);
+  });
+
+  it('rejects duplicate grouped dimensions before issuing a request', () => {
+    let error: ApiError | undefined;
+    service.groupedResources({}, 'environment', 'environment').subscribe({ error: (value) => (error = value) });
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error?.code).toBe('VALIDATION_ERROR');
+  });
 });
