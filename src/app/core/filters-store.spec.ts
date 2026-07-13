@@ -49,6 +49,15 @@ describe('FiltersStore', () => {
     expect('cost_center' in store.query()).toBe(false);
   });
 
+  it('keeps dimension filters out of the global query', () => {
+    store.setFilter('service', 'COMPUTE');
+    store.setFilter('env', 'prod');
+
+    expect(store.globalQuery()).toEqual({ start: store.start(), end: store.end() });
+    expect(store.globalQuery()).not.toHaveProperty('service');
+    expect(store.globalQuery()).not.toHaveProperty('env');
+  });
+
   it('serializes only shared filters for cross-view navigation', () => {
     store.hydrateFromParams({
       env: 'dev',

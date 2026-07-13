@@ -18,6 +18,14 @@ export interface SpendOverTime {
   series: MonthlySeries[]; // top-N resource names + "Other"
 }
 
+export interface RunRateComparison {
+  currentMonth: string;
+  previousMonth: string;
+  days: number[];
+  current: Array<number | null>;
+  previous: Array<number | null>;
+}
+
 const DAY_MS = 86_400_000;
 
 function monthLabelOf(bucket: string): string {
@@ -158,6 +166,64 @@ export function buildSpendOverTime(
   }
   series.push({ name: 'Other', values: other.map((v) => Math.max(0, v)) });
   return { months, series };
+}
+
+/** Build cumulative current/prior month values aligned to the day of month. */
+export function buildRunRate(
+  rows: TimeseriesRow[],
+  currency: string,
+  now: Date,
+  dataThrough = now,
+): RunRateComparison | null {
+  const currentMonth = now.toISOString().slice(0, 7);
+  const previousStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const previousMonth = previousStart.toISOString().slice(0, 7);
+  const cutoffMonth = dataThrough.toISOString().slice(0, 7);
+  const currentDays =
+    dataThrough.getTime() < now.getTime()
+      ? cutoffMonth === currentMonth
+        ? dataThrough.getUTCDate()
+        : 0
+      : now.getUTCDate();
+  const currentCosts = new Map<number, number>();
+  const previousCosts = new Map<number, number>();
+
+  for (const row of rows) {
+    if (row.currency !== currency) continue;
+    const month = monthLabelOf(row.bucket);
+    const day = new Date(row.bucket).getUTCDate();
+    if (month === currentMonth && day <= currentDays) {
+      currentCosts.set(day, (currentCosts.get(day) ?? 0) + parseCost(row.cost));
+    } else if (month === previousMonth) {
+      previousCosts.set(day, (previousCosts.get(day) ?? 0) + parseCost(row.cost));
+    }
+  }
+
+  if (!currentCosts.size) return null;
+
+  const previousDays = daysInMonth(previousStart.toISOString());
+  const days = Array.from({ length: Math.max(currentDays, previousDays) }, (_, i) => i + 1);
+  let currentTotal = 0;
+  let previousTotal = 0;
+  const current: Array<number | null> = [];
+  const previous: Array<number | null> = [];
+
+  for (const day of days) {
+    if (day <= currentDays) {
+      currentTotal += currentCosts.get(day) ?? 0;
+      current.push(currentTotal);
+    } else {
+      current.push(null);
+    }
+    if (day <= previousDays) {
+      previousTotal += previousCosts.get(day) ?? 0;
+      previous.push(previousTotal);
+    } else {
+      previous.push(null);
+    }
+  }
+
+  return { currentMonth, previousMonth, days, current, previous };
 }
 
 function money(value: number, currency: string): string {

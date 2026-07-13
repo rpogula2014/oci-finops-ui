@@ -1,15 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toObservable } from '@angular/core/rxjs-interop';
-import { EMPTY, catchError, debounceTime, map, switchMap } from 'rxjs';
+import { catchError, debounceTime, forkJoin, map, of, switchMap } from 'rxjs';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsOption } from 'echarts';
 import { CostApiService } from '../../core/cost-api.service';
-import { DIMENSION_LABELS, DIMENSION_TO_FILTER, FiltersStore } from '../../core/filters-store';
-import { ApiError, BreakdownRow, Dimension } from '../../core/api.types';
+import { DIMENSION_FILTER_KEYS, DIMENSION_LABELS, DIMENSION_TO_FILTER, DimensionFilterKey, FiltersStore } from '../../core/filters-store';
+import { ApiError, BreakdownRow, CostQuery, Dimension } from '../../core/api.types';
 import { currenciesOf, formatMoney, labelForFilterValue, parseCost } from '../../core/currency';
 import { PanelStateComponent, PanelStatus } from '../../shared/panel-state.component';
 import { CHART_TEXT, BASE_CHART } from '../../shared/chart-theme';
-import { SpendOverTime, StatCard, buildSpendOverTime, buildStatCards } from './summary-metrics';
+import { RunRateComparison, SpendOverTime, StatCard, buildRunRate, buildSpendOverTime, buildStatCards } from './summary-metrics';
 
 const TOP_N = 7;
 
@@ -34,6 +34,22 @@ interface LandingData {
   currency: string;
 }
 
+interface ServiceData {
+  rows: BreakdownRow[];
+  currency: string;
+}
+
+interface RunRateData {
+  comparison: RunRateComparison;
+  currency: string;
+}
+
+interface DataPanel<T> {
+  status: PanelStatus;
+  data: T | null;
+  error: ApiError | null;
+}
+
 @Component({
   selector: 'app-summary',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,8 +70,8 @@ interface LandingData {
       </label>
     </div>
 
-    <app-panel-state [status]="panel().status" [error]="panel().error">
-      @if (panel().data; as d) {
+    <app-panel-state [status]="landingPanel().status" [error]="landingPanel().error">
+      @if (landingPanel().data; as d) {
         <div class="stat-band">
           @for (card of d.cards; track card.label) {
             <div class="card stat">
@@ -84,6 +100,11 @@ interface LandingData {
           ></div>
         </section>
 
+      }
+    </app-panel-state>
+
+    <div class="breakdown-grid">
+      @if (landingPanel().data; as d) {
         <section class="card">
           <div class="panel-head">
             <h2>By {{ dimensionLabels[groupDim()].toLowerCase() }}</h2>
@@ -93,14 +114,14 @@ interface LandingData {
             @for (row of d.byResource; track row.dimension_value; let i = $index) {
               <button
                 class="resource-bar"
-                [class.active]="filters.filter(filterKey())() === row.dimension_value"
+                [class.active]="filterValue(filterKey()) === row.dimension_value"
                 (click)="toggleResource(row.dimension_value)"
               >
                 <span class="name">{{ labelFor(row.dimension_value) }}</span>
                 <span class="track">
                   <span
                     class="fill"
-                    [style.width.%]="barWidth(row, d)"
+                    [style.width.%]="barWidth(row, d.byResource)"
                     [style.background]="barColor(i)"
                   ></span>
                 </span>
@@ -110,7 +131,59 @@ interface LandingData {
           </div>
         </section>
       }
-    </app-panel-state>
+
+      <section class="card">
+        <div class="panel-head">
+          <h2>By service</h2>
+          <span class="sub">share of filtered spend — click a bar to filter</span>
+        </div>
+        <app-panel-state [status]="servicePanel().status" [error]="servicePanel().error">
+          @if (servicePanel().data; as service) {
+            <div class="resource-bars">
+              @for (row of service.rows; track row.dimension_value; let i = $index) {
+                <button
+                  class="resource-bar"
+                  [class.active]="filterValue('service') === row.dimension_value"
+                  (click)="toggleFilter('service', row.dimension_value)"
+                >
+                  <span class="name">{{ labelFor(row.dimension_value) }}</span>
+                  <span class="track">
+                    <span
+                      class="fill"
+                      [style.width.%]="barWidth(row, service.rows)"
+                      [style.background]="barColor(i)"
+                    ></span>
+                  </span>
+                  <span class="amount">{{ fmt(row, service.currency) }}</span>
+                </button>
+              }
+            </div>
+          }
+        </app-panel-state>
+      </section>
+    </div>
+
+    @if (runRatePanel().status !== 'empty') {
+      <section class="card run-rate-panel">
+        <div class="panel-head">
+          <h2>Daily run rate</h2>
+          @if (runRatePanel().data; as runRate) {
+            <span class="sub">{{ runRate.comparison.currentMonth }} vs {{ runRate.comparison.previousMonth }}</span>
+          }
+        </div>
+        <app-panel-state [status]="runRatePanel().status" [error]="runRatePanel().error">
+          @if (runRatePanel().data) {
+            <div
+              echarts
+              [options]="runRateChart()"
+              class="run-rate-chart"
+              role="img"
+              aria-label="Cumulative daily spend for the current and previous month"
+            ></div>
+          }
+        </app-panel-state>
+      </section>
+    }
   `,
   styles: `
     section { margin-bottom: 24px; }
@@ -128,6 +201,8 @@ interface LandingData {
     .panel-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
     .panel-head .sub { font-size: 12px; color: var(--atd-grey-700); }
     .chart { height: 380px; width: 100%; }
+    .breakdown-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+    .run-rate-chart { height: 300px; width: 100%; }
     .resource-bars { display: flex; flex-direction: column; gap: 6px; }
     .resource-bar {
       display: grid;
@@ -147,6 +222,9 @@ interface LandingData {
     .resource-bar .track { height: 10px; background: var(--atd-grey-050); border-radius: 5px; overflow: hidden; }
     .resource-bar .fill { display: block; height: 100%; border-radius: 5px; }
     .resource-bar .amount { text-align: right; font-weight: 700; color: var(--atd-distribution-blue); }
+    @media (max-width: 900px) {
+      .breakdown-grid { grid-template-columns: 1fr; }
+    }
   `,
 })
 export class SummaryComponent {
@@ -158,53 +236,114 @@ export class SummaryComponent {
   protected readonly dimensionLabels = DIMENSION_LABELS;
   protected readonly groupDim = signal<Dimension>('cost_center');
   protected readonly filterKey = computed(() => DIMENSION_TO_FILTER[this.groupDim()]);
+  private readonly localFilterSignals = Object.fromEntries(
+    DIMENSION_FILTER_KEYS.map((key) => [key, signal<string | null>(null)]),
+  ) as Record<DimensionFilterKey, ReturnType<typeof signal<string | null>>>;
 
-  protected readonly panel = signal<{ status: PanelStatus; data: LandingData | null; error: ApiError | null }>({
+  protected readonly landingPanel = signal<DataPanel<LandingData>>({
     status: 'loading',
     data: null,
     error: null,
   });
+  protected readonly servicePanel = signal<DataPanel<ServiceData>>({ status: 'loading', data: null, error: null });
+  protected readonly runRatePanel = signal<DataPanel<RunRateData>>({ status: 'loading', data: null, error: null });
+
+  private readonly summaryQuery = computed<CostQuery>(() => {
+    const query: CostQuery = { ...this.filters.globalQuery() };
+    for (const key of DIMENSION_FILTER_KEYS) {
+      const value = this.localFilterSignals[key]();
+      if (value !== null) query[key] = value;
+    }
+    return query;
+  });
 
   constructor() {
-    const key = computed(() => ({ query: this.filters.query(), dim: this.groupDim() }));
+    const key = computed(() => ({
+      query: this.summaryQuery(),
+      dim: this.groupDim(),
+      currency: this.filters.currency(),
+    }));
     toObservable(key)
       .pipe(
         debounceTime(200),
         switchMap(({ query, dim }) => {
-          this.panel.set({ status: 'loading', data: null, error: null });
-          return this.api.execSummary(query, dim, TOP_N).pipe(
-            map(({ rows: agg }) => {
-              const currency =
-                this.filters.currency() ?? currenciesOf(agg.summary.filter((r) => r.currency))[0] ?? 'USD';
-              const cards = buildStatCards({
-                summaryRows: agg.summary,
-                monthly: agg.monthly,
-                costCenters: agg.cost_centers,
-                environments: agg.environments,
-                topResources: agg.top_breakdown,
-                topLabel: DIMENSION_LABELS[dim],
-                freshness: agg.freshness,
-                start: query.start ?? new Date().toISOString(),
-                end: query.end ?? new Date().toISOString(),
-                currency,
-              });
-              const spend = buildSpendOverTime(
-                agg.top_series.map((s) => s.name),
-                agg.top_series.map((s) => s.rows),
-                agg.monthly,
-                currency,
-              );
-              const byResource = agg.top_breakdown.filter((r) => r.currency === currency);
-              const data: LandingData = { cards, spend, byResource, currency };
-              this.panel.set({
-                status: byResource.length || spend.months.length ? 'ready' : 'empty',
-                data,
-                error: null,
-              });
-            }),
-            catchError((error: ApiError) => {
-              this.panel.set({ status: 'error', data: null, error });
-              return EMPTY;
+          const now = new Date();
+          this.landingPanel.set({ status: 'loading', data: null, error: null });
+          this.servicePanel.set({ status: 'loading', data: null, error: null });
+          this.runRatePanel.set({ status: 'loading', data: null, error: null });
+
+          return forkJoin({
+            landing: this.api.execSummary(query, dim, TOP_N).pipe(
+              catchError((error: ApiError) => {
+                this.landingPanel.set({ status: 'error', data: null, error });
+                return of(null);
+              }),
+            ),
+            service: this.api.breakdown(query, 'service', TOP_N, false, 'day').pipe(
+              catchError((error: ApiError) => {
+                this.servicePanel.set({ status: 'error', data: null, error });
+                return of(null);
+              }),
+            ),
+            runRate: this.api.timeseries(this.runRateQuery(query, now), 'day').pipe(
+              catchError((error: ApiError) => {
+                this.runRatePanel.set({ status: 'error', data: null, error });
+                return of(null);
+              }),
+            ),
+          }).pipe(
+            map(({ landing, service, runRate }) => {
+              const dataThrough = landing?.rows.freshness ? new Date(landing.rows.freshness.data_through) : now;
+              if (landing) {
+                const agg = landing.rows;
+                const currency = this.foregroundCurrency(agg.summary);
+                const cards = buildStatCards({
+                  summaryRows: agg.summary,
+                  monthly: agg.monthly,
+                  costCenters: agg.cost_centers,
+                  environments: agg.environments,
+                  topResources: agg.top_breakdown,
+                  topLabel: DIMENSION_LABELS[dim],
+                  freshness: agg.freshness,
+                  start: query.start ?? new Date().toISOString(),
+                  end: query.end ?? new Date().toISOString(),
+                  currency,
+                });
+                const spend = buildSpendOverTime(
+                  agg.top_series.map((s) => s.name),
+                  agg.top_series.map((s) => s.rows),
+                  agg.monthly,
+                  currency,
+                );
+                const byResource = agg.top_breakdown.filter((r) => r.currency === currency);
+                const data: LandingData = { cards, spend, byResource, currency };
+                const hasData = byResource.length || spend.months.length;
+                this.landingPanel.set({
+                  status: hasData ? 'ready' : 'empty',
+                  data: hasData ? data : null,
+                  error: null,
+                });
+              }
+
+              if (service) {
+                const currency = this.foregroundCurrency(service.rows);
+                const rows = service.rows.filter((row) => row.currency === currency);
+                this.servicePanel.set({
+                  status: rows.length ? 'ready' : 'empty',
+                  data: { rows, currency },
+                  error: null,
+                });
+              }
+
+              if (runRate) {
+                const currency = this.foregroundCurrency(runRate.rows);
+                const comparison = buildRunRate(runRate.rows, currency, now, dataThrough);
+                this.runRatePanel.set({
+                  status: comparison ? 'ready' : 'empty',
+                  data: comparison ? { comparison, currency } : null,
+                  error: null,
+                });
+              }
             }),
           );
         }),
@@ -212,8 +351,20 @@ export class SummaryComponent {
       .subscribe();
   }
 
+  private foregroundCurrency(rows: Array<{ currency: string }>): string {
+    return this.filters.currency() ?? currenciesOf(rows)[0] ?? 'USD';
+  }
+
+  private runRateQuery(query: CostQuery, now: Date): CostQuery {
+    return {
+      ...query,
+      start: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)).toISOString(),
+      end: now.toISOString(),
+    };
+  }
+
   protected readonly spendChart = computed<EChartsOption>(() => {
-    const data = this.panel().data;
+    const data = this.landingPanel().data;
     if (!data) return {};
     const { spend, currency } = data;
     const labels = spend.months.map((m) => {
@@ -242,13 +393,47 @@ export class SummaryComponent {
     };
   });
 
+  protected readonly runRateChart = computed<EChartsOption>(() => {
+    const data = this.runRatePanel().data;
+    if (!data) return {};
+    const { comparison, currency } = data;
+    return {
+      ...BASE_CHART,
+      tooltip: {
+        trigger: 'axis',
+        valueFormatter: (v) => formatMoney(Number(v), currency, 2),
+      },
+      legend: { bottom: 0, textStyle: { color: CHART_TEXT } },
+      grid: { left: 80, right: 24, top: 16, bottom: 56 },
+      xAxis: { type: 'category', data: comparison.days.map(String), name: 'Day of month' },
+      yAxis: { type: 'value', axisLabel: { formatter: (v: number) => formatMoney(v, currency) } },
+      series: [
+        {
+          name: comparison.currentMonth,
+          type: 'line' as const,
+          symbol: 'none',
+          data: comparison.current,
+          color: STACK_PALETTE[0],
+        },
+        {
+          name: comparison.previousMonth,
+          type: 'line' as const,
+          symbol: 'none',
+          data: comparison.previous,
+          color: OTHER_COLOR,
+          lineStyle: { color: OTHER_COLOR, type: 'dashed' },
+        },
+      ],
+    };
+  });
+
   /** Bars share the stack chart's palette: top-7 rows are the chart series (same order), the rest are "Other" grey. */
   protected barColor(index: number): string {
     return index < TOP_N ? STACK_PALETTE[index % STACK_PALETTE.length] : OTHER_COLOR;
   }
 
-  protected barWidth(row: BreakdownRow, d: LandingData): number {
-    const max = Math.max(...d.byResource.map((r) => parseCost(r.cost)), 1);
+  protected barWidth(row: BreakdownRow, rows: BreakdownRow[]): number {
+    const max = Math.max(...rows.map((r) => parseCost(r.cost)), 1);
     return (parseCost(row.cost) / max) * 100;
   }
 
@@ -260,9 +445,16 @@ export class SummaryComponent {
     this.groupDim.set((event.target as HTMLSelectElement).value as Dimension);
   }
 
+  protected filterValue(key: DimensionFilterKey): string | null {
+    return this.localFilterSignals[key]();
+  }
+
+  protected toggleFilter(key: DimensionFilterKey, value: string): void {
+    const current = this.localFilterSignals[key]();
+    this.localFilterSignals[key].set(current === value ? null : value);
+  }
+
   protected toggleResource(value: string): void {
-    const key = this.filterKey();
-    const current = this.filters.filter(key)();
-    this.filters.setFilter(key, current === value ? null : value);
+    this.toggleFilter(this.filterKey(), value);
   }
 }

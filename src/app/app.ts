@@ -166,7 +166,7 @@ export class App {
       error: () => this.freshness.set(null),
     });
     // learn available currencies once, for the top-bar selector (design D1)
-    this.api.summary(this.filters.query()).subscribe({
+    this.api.summary(this.filters.globalQuery()).subscribe({
       next: ({ rows }) => this.currencies.set(currenciesOf(rows)),
       error: () => this.currencies.set([]),
     });

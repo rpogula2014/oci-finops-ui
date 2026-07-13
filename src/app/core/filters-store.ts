@@ -95,6 +95,9 @@ export class FiltersStore {
     return query;
   });
 
+  /** Query object for views that should ignore Explorer-scoped dimension filters. */
+  readonly globalQuery = computed<CostQuery>(() => ({ start: this.start(), end: this.end() }));
+
   /** Router query params representing current Explorer state. */
   toQueryParams(): Params {
     const params = this.toFilterParams();
