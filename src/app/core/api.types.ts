@@ -129,6 +129,40 @@ export interface FiltersRow {
 
 export type Granularity = 'hour' | 'day' | 'week' | 'month';
 
+/** Analysis endpoints return statistical amounts as JSON numbers, not ledger decimal strings. */
+export interface AnomalyRow {
+  dimension_value: string;
+  currency: string;
+  day: string;
+  cost: number;
+  baseline: number;
+  deviation: number;
+  z_score: number;
+  severity: 'warning' | 'critical';
+  direction: 'spike' | 'drop';
+}
+
+export interface TrendMoverRow {
+  dimension_value: string;
+  currency: string;
+  current_cost: number | null;
+  previous_cost: number | null;
+  change_amount: number | null;
+  change_pct: number | null;
+  slope: number | null;
+  direction: 'rising' | 'falling' | 'flat' | 'new' | 'gone';
+}
+
+export interface AnomalyOptions {
+  window?: number;
+  minZ?: number;
+  minImpact?: number;
+}
+
+export interface TrendMoversOptions {
+  granularity?: Exclude<Granularity, 'hour'>;
+}
+
 export type Dimension =
   | 'service'
   | 'compartment'

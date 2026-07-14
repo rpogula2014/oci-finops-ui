@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, InjectionToken, inject } from '@angular/core';
 import { Observable, map, throwError } from 'rxjs';
-import { ApiError, BreakdownRow, CostQuery, Dimension, Envelope, EnvelopeMeta, ExecSummary, FiltersRow, Freshness, Granularity, GroupedResourceDimension, GroupedResourceRow, LineItemsRow, ResourceDetail, ResourceRow, SummaryRow, TimeseriesRow } from './api.types';
+import { AnomalyOptions, AnomalyRow, ApiError, BreakdownRow, CostQuery, Dimension, Envelope, EnvelopeMeta, ExecSummary, FiltersRow, Freshness, Granularity, GroupedResourceDimension, GroupedResourceRow, LineItemsRow, ResourceDetail, ResourceRow, SummaryRow, TimeseriesRow, TrendMoverRow, TrendMoversOptions } from './api.types';
 
 /** Overridable for non-proxied deployments; default relies on the dev-server proxy. */
 export const API_BASE_URL = new InjectionToken<string>('API_BASE_URL', {
@@ -34,6 +34,9 @@ export class CostApiService {
   private unwrap<T>(source: Observable<Envelope<T>>, emptyValue?: T): Observable<Unwrapped<T>> {
     return source.pipe(
       map((envelope) => {
+        if (!envelope || typeof envelope !== 'object' || !('data' in envelope) || !('meta' in envelope) || !('error' in envelope)) {
+          throw new ApiError('HTTP_ERROR', 'Invalid response envelope');
+        }
         if (envelope.error) throw new ApiError(envelope.error.code, envelope.error.message);
         if (envelope.data === null) {
           // zero-row list responses come back as data: null — treat as empty, not error
@@ -66,6 +69,19 @@ export class CostApiService {
 
   timeseries(query: CostQuery, granularity: Granularity): Observable<Unwrapped<TimeseriesRow[]>> {
     return this.get('/v1/costs/timeseries', toParams(query, { granularity }));
+  }
+
+  anomalies(query: CostQuery, dimension: Dimension, opts: AnomalyOptions = {}): Observable<Unwrapped<AnomalyRow[]>> {
+    return this.get('/v1/costs/anomalies', toParams(query, {
+      dimension,
+      window: opts.window,
+      min_z: opts.minZ,
+      min_impact: opts.minImpact,
+    }));
+  }
+
+  trendMovers(query: CostQuery, dimension: Dimension, opts: TrendMoversOptions = {}): Observable<Unwrapped<TrendMoverRow[]>> {
+    return this.get('/v1/costs/trends', toParams(query, { dimension, granularity: opts.granularity }));
   }
 
   breakdown(query: CostQuery, dimension: Dimension, limit = 20, series = false, granularity: Granularity = 'day'): Observable<Unwrapped<BreakdownRow[]>> {

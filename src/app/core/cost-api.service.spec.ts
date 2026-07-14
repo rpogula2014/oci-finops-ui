@@ -70,6 +70,37 @@ describe('CostApiService', () => {
     breakdown.flush({ data: [], meta: {}, error: null });
   });
 
+  it('forwards analysis filters, range, dimension, and options', () => {
+    service
+      .anomalies({ start: '2026-07-01T00:00:00Z', end: '2026-07-13T00:00:00Z', service: 'COMPUTE', env: 'prod' }, 'service', { window: 14, minZ: 5, minImpact: 200 })
+      .subscribe();
+    const anomalies = http.expectOne((r) => r.url === '/v1/costs/anomalies');
+    expect(anomalies.request.params.get('start')).toBe('2026-07-01T00:00:00Z');
+    expect(anomalies.request.params.get('service')).toBe('COMPUTE');
+    expect(anomalies.request.params.get('env')).toBe('prod');
+    expect(anomalies.request.params.get('dimension')).toBe('service');
+    expect(anomalies.request.params.get('window')).toBe('14');
+    expect(anomalies.request.params.get('min_z')).toBe('5');
+    expect(anomalies.request.params.get('min_impact')).toBe('200');
+    anomalies.flush({ data: [], meta: {}, error: null });
+
+    service.trendMovers({ service: 'COMPUTE' }, 'resource_name', { granularity: 'week' }).subscribe();
+    const trends = http.expectOne((r) => r.url === '/v1/costs/trends');
+    expect(trends.request.params.get('service')).toBe('COMPUTE');
+    expect(trends.request.params.get('dimension')).toBe('resource_name');
+    expect(trends.request.params.get('granularity')).toBe('week');
+    trends.flush({ data: [], meta: {}, error: null });
+  });
+
+  // A 200 body without the envelope must still give panels a controlled error state.
+  it('maps an empty or malformed analysis response to ApiError', () => {
+    let error: unknown;
+    service.anomalies({}, 'service').subscribe({ error: (value) => (error = value) });
+    http.expectOne((r) => r.url === '/v1/costs/anomalies').flush(null);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).message).toBe('Invalid response envelope');
+  });
+
   it('passes inherited scope to a resource-detail request', () => {
     service
       .resourceDetail('ocid1.resource.example', {

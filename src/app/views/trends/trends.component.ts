@@ -1,166 +1,74 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
-import { EMPTY, catchError, debounceTime, forkJoin, map, of, switchMap } from 'rxjs';
-import { NgxEchartsDirective } from 'ngx-echarts';
-import type { EChartsOption } from 'echarts';
-import { ApiError, Dimension, Granularity, TimeseriesRow } from '../../core/api.types';
-import { CostApiService } from '../../core/cost-api.service';
-import { DimensionFilterKey, FiltersStore } from '../../core/filters-store';
-import { labelForFilterValue, parseCost } from '../../core/currency';
-import { BASE_CHART, CHART_RAMP, bucketLabel } from '../../shared/chart-theme';
-import { PanelStateComponent, PanelStatus } from '../../shared/panel-state.component';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { AnomalyOptions, Dimension, Granularity } from '../../core/api.types';
+import { DIMENSION_TO_FILTER, FiltersStore } from '../../core/filters-store';
+import { FocusStep, nextFocusDimension } from './focus-path';
+import { TrendsDrilldownComponent } from './trends-drilldown.component';
+import { TrendsHighlightsComponent } from './trends-highlights.component';
 
-const STACK_DIMENSIONS: { value: Dimension | ''; label: string }[] = [
-  { value: '', label: 'No stacking' },
-  { value: 'service', label: 'Service' },
-  { value: 'compartment', label: 'Compartment' },
-  { value: 'environment', label: 'Environment' },
-  { value: 'cost_center', label: 'Cost Center' },
-  { value: 'component_type', label: 'Component Type' },
-];
+type SensitivityPreset = 'default' | 'strict' | 'loose';
 
-const DIMENSION_TO_FILTER: Record<string, DimensionFilterKey> = {
-  service: 'service',
-  compartment: 'compartment',
-  environment: 'env',
-  cost_center: 'cost_center',
-  component_type: 'component_type',
+const SENSITIVITY: Record<SensitivityPreset, AnomalyOptions> = {
+  default: { window: 28, minZ: 3, minImpact: 50 },
+  strict: { window: 28, minZ: 5, minImpact: 200 },
+  loose: { window: 14, minZ: 2, minImpact: 10 },
 };
-
-const TOP_SERIES = 5;
-
-interface Series {
-  name: string;
-  rows: TimeseriesRow[];
-}
 
 @Component({
   selector: 'app-trends',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgxEchartsDirective, PanelStateComponent],
+  imports: [TrendsHighlightsComponent, TrendsDrilldownComponent],
   template: `
-    <span class="eyebrow">Trends</span>
-    <h1>Cost trends</h1>
-
-    <div class="card">
-      <div class="panel-head">
-        <div class="grain-toggle" role="group" aria-label="Granularity">
-          @for (g of grains; track g) {
-            <button [class.on]="filters.granularity() === g" (click)="filters.granularity.set(g)">{{ g }}</button>
-          }
-        </div>
-        <label>
-          <span class="eyebrow">Stack by</span>
-          <select (change)="onStack($event)" aria-label="Stack by dimension">
-            @for (option of stackOptions; track option.value) {
-              <option [value]="option.value" [selected]="option.value === stackBy()">{{ option.label }}</option>
-            }
+    <div class="title-row">
+      <div><span class="eyebrow">Cost intelligence</span><h1>Cost trends</h1></div>
+      <div class="title-actions">
+        <label class="sensitivity"><span class="eyebrow">Anomaly sensitivity</span>
+          <select [value]="sensitivity()" (change)="onSensitivity($event)" aria-label="Anomaly sensitivity">
+            <option value="default">Default</option><option value="strict">Strict</option><option value="loose">Loose</option>
           </select>
         </label>
+        <button class="reset-view" (click)="reset()">Reset view</button>
       </div>
-      <app-panel-state [status]="panel().status" [error]="panel().error">
-        @if (panel().status === 'ready') {
-          <div
-            echarts
-            [options]="chart()"
-            class="chart"
-            role="img"
-            aria-label="Cost trend over time, optionally stacked by dimension"
-          ></div>
-        }
-      </app-panel-state>
     </div>
+    <app-trends-highlights [options]="anomalyOptions()" (investigate)="investigate($event)" />
+    <app-trends-drilldown [options]="anomalyOptions()" [focus]="focus()" [dimension]="drillDimension()" [grain]="grain()" [stackBy]="stackBy()" (focusChange)="focus.set($event)" (dimensionChange)="drillDimension.set($event)" (grainChange)="grain.set($event)" (stackByChange)="stackBy.set($event)" (openInExplorer)="openInExplorer()" />
   `,
   styles: `
-    .panel-head { display: flex; justify-content: space-between; align-items: end; margin-bottom: 12px; }
-    .panel-head label { display: flex; flex-direction: column; gap: 4px; }
-    .grain-toggle button.on { background: var(--atd-logistics-blue); font-weight: 700; }
-    .chart { height: 420px; width: 100%; }
+    .title-row, .title-actions { display:flex; align-items:end; justify-content:space-between; gap:16px; } .title-row { margin-bottom:24px; }
+    h1 { margin:0; } .sensitivity { display:flex; flex-direction:column; gap:4px; } .reset-view { margin-bottom:1px; } @media (max-width:620px) { .title-row, .title-actions { align-items:start; flex-direction:column; } }
   `,
 })
 export class TrendsComponent {
-  private readonly api = inject(CostApiService);
-  protected readonly filters = inject(FiltersStore);
-
-  protected readonly grains: Granularity[] = ['hour', 'day', 'week', 'month'];
-  protected readonly stackOptions = STACK_DIMENSIONS;
+  private readonly filters = inject(FiltersStore);
+  private readonly router = inject(Router);
+  protected readonly sensitivity = signal<SensitivityPreset>('default');
+  protected readonly drillDimension = signal<Dimension>('service');
+  protected readonly focus = signal<FocusStep[]>([]);
+  protected readonly grain = signal<Granularity>('day');
   protected readonly stackBy = signal<Dimension | ''>('');
-  protected readonly panel = signal<{ status: PanelStatus; data: Series[] | null; error: ApiError | null }>({
-    status: 'loading',
-    data: null,
-    error: null,
-  });
+  protected readonly anomalyOptions = () => SENSITIVITY[this.sensitivity()];
 
-  constructor() {
-    const key = computed(() => ({
-      query: this.filters.query(),
-      grain: this.filters.granularity(),
-      stack: this.stackBy(),
-    }));
-    toObservable(key)
-      .pipe(
-        debounceTime(200),
-        switchMap(({ query, grain, stack }) => {
-          this.panel.set({ status: 'loading', data: null, error: null });
-          const series$ = stack
-            ? // top-N values of the stack dimension, then one timeseries per value
-              this.api.breakdown(query, stack, TOP_SERIES).pipe(
-                switchMap(({ rows }) => {
-                  if (!rows.length) return of([] as Series[]);
-                  return forkJoin(
-                    rows.map((row) =>
-                      this.api
-                        .timeseries({ ...query, [DIMENSION_TO_FILTER[stack]]: row.dimension_value }, grain)
-                        .pipe(
-                          map((r) => ({ name: labelForFilterValue(row.dimension_value), rows: r.rows })),
-                        ),
-                    ),
-                  );
-                }),
-              )
-            : this.api.timeseries(query, grain).pipe(map((r) => [{ name: 'Total', rows: r.rows }]));
-          return series$.pipe(
-            map((series) => {
-              const hasData = series.some((s) => s.rows.length);
-              this.panel.set({ status: hasData ? 'ready' : 'empty', data: series, error: null });
-            }),
-            catchError((error: ApiError) => {
-              this.panel.set({ status: 'error', data: null, error });
-              return EMPTY;
-            }),
-          );
-        }),
-      )
-      .subscribe();
+  protected onSensitivity(event: Event): void {
+    this.sensitivity.set((event.target as HTMLSelectElement).value as SensitivityPreset);
   }
 
-  protected onStack(event: Event): void {
-    this.stackBy.set((event.target as HTMLSelectElement).value as Dimension | '');
+  protected reset(): void {
+    this.sensitivity.set('default');
+    this.focus.set([]);
+    this.drillDimension.set('service');
+    this.grain.set('day');
+    this.stackBy.set('');
   }
 
-  protected readonly chart = computed<EChartsOption>(() => {
-    const series = this.panel().data ?? [];
-    const buckets = [...new Set(series.flatMap((s) => s.rows.map((r) => r.bucket)))].sort();
-    const stacked = series.length > 1;
-    return {
-      ...BASE_CHART,
-      tooltip: { trigger: 'axis' },
-      legend: stacked ? { data: series.map((s) => s.name), top: 0 } : undefined,
-      grid: { left: 60, right: 16, top: 48, bottom: 40 },
-      xAxis: { type: 'category', data: buckets.map((b) => bucketLabel(b, this.filters.granularity())) },
-      yAxis: { type: 'value' },
-      series: series.map((s, i) => {
-        const byBucket = new Map(s.rows.map((r) => [r.bucket, parseCost(r.cost)]));
-        return {
-          name: s.name,
-          type: 'line' as const,
-          symbol: 'none',
-          stack: stacked ? 'total' : undefined,
-          areaStyle: { opacity: stacked ? 0.35 : 0.15 },
-          data: buckets.map((b) => byBucket.get(b) ?? 0),
-          color: CHART_RAMP[i % CHART_RAMP.length],
-        };
-      }),
-    };
-  });
+  protected investigate({ dimension, value }: { dimension: Dimension; value: string }): void {
+    const focus = [{ dimension, value }];
+    this.focus.set(focus);
+    this.drillDimension.set(nextFocusDimension(dimension, focus));
+    document.getElementById('trends-drilldown')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  protected openInExplorer(): void {
+    const focusParams = Object.fromEntries(this.focus().map((step) => [DIMENSION_TO_FILTER[step.dimension], step.value]));
+    void this.router.navigate(['/explorer'], { queryParams: { ...this.filters.toFilterParams(), ...focusParams } });
+  }
 }
