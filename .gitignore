@@ -46,6 +46,6 @@ Thumbs.db
 .tokensave/
 .codex/
 .claude/
-.agent/
+.agents/
 .angular/
-.serena/project.yml
+.serena/

@@ -7,6 +7,26 @@ spend (summary, explorer, trends, resources views) served by the Go
 Development is spec-driven via `openspec/` — read `openspec/config.yaml` and
 the relevant `openspec/specs/<capability>/` before changing a feature.
 
+## Spec-driven workflow (openspec)
+
+All requirements, design, and feature documentation live in `openspec/`. Any
+non-trivial feature or behavior change flows through it — do not hand-edit
+specs directly.
+
+- **Before changing a feature**: read `openspec/config.yaml` and the relevant
+  `openspec/specs/<capability>/` to understand the current contract.
+- **To change behavior**: create a change proposal under `openspec/changes/`
+  (proposal + design + tasks), get it approved, then implement.
+- **When done**: archive the change (moves it to `openspec/changes/archive/`)
+  and sync the affected `openspec/specs/`.
+- `specs/` = current source of truth; `changes/` = in-flight proposals.
+- Follow the `rules:` in `config.yaml` — proposals under 2 pages, simplest
+  design, every endpoint task includes tests + `openapi.yaml` + README, UI
+  changes include a live-verification task.
+
+Skills: `openspec-propose`, `openspec-apply-change`, `openspec-archive-change`,
+`openspec-update-change`, `openspec-sync-specs`, `openspec-explore`.
+
 ## Tech stack
 
 - Angular 22 — standalone components, signals, OnPush change detection,
